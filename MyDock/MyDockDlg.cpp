@@ -11,7 +11,7 @@
 #define new DEBUG_NEW
 #endif
 
-
+using namespace std;
 // CMyDockDlg 对话框
 
 
@@ -55,8 +55,54 @@ BOOL CMyDockDlg::OnInitDialog()
 	m_enHidePosi = NO;
 	SetTimer( 100, 100, NULL );
 
+	m_bnApp[0].SubclassDlgItem( IDC_BN_APP01, this );
+	//m_bnApp[1] = this->GetDlgItem( IDC_BN_APP02 );
+	//m_bnApp[2] = this->GetDlgItem( IDC_BN_APP03 );
+	//m_bnApp[3] = this->GetDlgItem( IDC_BN_APP04 );
+	//m_bnApp[4] = this->GetDlgItem( IDC_BN_APP05 );
+	//m_bnApp[5] = this->GetDlgItem( IDC_BN_APP06 );
+	//m_bnApp[6] = this->GetDlgItem( IDC_BN_APP07 );
+	//m_bnApp[7] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[8] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[9] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[10] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[11] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[12] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[13] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[14] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[15] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[16] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[17] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[18] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[19] = this->GetDlgItem( IDC_BN_APP01 );
+	//m_bnApp[20] = this->GetDlgItem( IDC_BN_APP01 );
+
+	LoadSettingFile();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
+}
+
+
+void CMyDockDlg::LoadSettingFile(){
+	CString strSettingFile;
+	CString strKey;
+	CString strSection = "Applications";
+
+	GetModuleFileName( NULL, strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
+	strSettingFile.ReleaseBuffer();
+	strSettingFile = strSettingFile.Left( strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
+	TRACE( "%s", strSettingFile );
+	
+	m_vstrApp.resize( MAX_APP_NUM );
+	
+	for ( int i = 0; i < MAX_APP_NUM; i++ ){
+		strKey.Format( "App%02d", i + 1 );
+		GetPrivateProfileString( strSection, strKey, "", m_vstrApp.at(i).GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		m_vstrApp.at(i).ReleaseBuffer();
+	}
+
+	m_bnApp[0].SetIcon(AfxGetApp()->LoadIcon(IDR_MAINFRAME));
+	//ShellExecute( NULL, _T("open") , m_vstrApp.at(0), NULL, NULL, SW_SHOWNORMAL );
 }
 
 // 如果向对话框添加最小化按钮，则需要下面的代码

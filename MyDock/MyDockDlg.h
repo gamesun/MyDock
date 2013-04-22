@@ -4,6 +4,9 @@
 
 #pragma once
 
+
+#define MAX_APP_NUM		20
+
 typedef enum _hide_posi{
 	NO,  //非靠边
 	LEFT, //靠左
@@ -18,6 +21,8 @@ class CMyDockDlg : public CDialogEx
 public:
 	CMyDockDlg(CWnd* pParent = NULL);	// 标准构造函数
 
+
+	void LoadSettingFile( void );
 	BOOL IsMouseInWindow( void );
 	void DockedShow( void );
 	void DockedHidden( void );
@@ -36,6 +41,9 @@ protected:
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
 	CRect m_rect;
+	
+	std::vector<CString> m_vstrApp;
+	CButton	m_bnApp[MAX_APP_NUM];
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
