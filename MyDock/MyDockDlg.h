@@ -1,39 +1,41 @@
 
-// MyDockDlg.h : 头文件
+// MyDockDlg.h : 
 //
 
 #pragma once
 
 
-#define MAX_APP_NUM		20
+#define MAX_APP_NUM		128
+#define	IDC_BN_HEAD		IDC_BN_APP1
+#define IDC_BN_END		IDC_BN_APP1 + MAX_APP_NUM
 
 typedef enum _hide_posi{
-	NO,  //非靠边
-	LEFT, //靠左
-	RIGHT,//靠右
-	TOP	  //靠上
+	NO,
+	LEFT,
+	RIGHT,
+	TOP
 } enHidePosi;
 
-// CMyDockDlg 对话框
+// CMyDockDlg 
 class CMyDockDlg : public CDialogEx
 {
-// 构造
+// 
 public:
-	CMyDockDlg(CWnd* pParent = NULL);	// 标准构造函数
+	CMyDockDlg(CWnd* pParent = NULL);	// 
+	~CMyDockDlg();
 
-
-	void LoadSettingFile( void );
+	void Loading( void );
 	BOOL IsMouseInWindow( void );
 	void DockedShow( void );
 	void DockedHidden( void );
-// 对话框数据
+
 	enum { IDD = IDD_MYDOCK_DIALOG };
 
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
+	virtual void DoDataExchange(CDataExchange* pDX);	
 
 
-// 实现
+
 protected:
 	HICON m_hIcon;
 	int m_screenX;
@@ -43,8 +45,9 @@ protected:
 	CRect m_rect;
 	
 	std::vector<CString> m_vstrApp;
-	CButton	m_bnApp[MAX_APP_NUM];
-	// 生成的消息映射函数
+	std::vector<CButton*> m_vpbnApp;
+
+
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
@@ -56,4 +59,5 @@ public:
 	virtual void OnOK();
 	virtual void OnCancel();
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	void OnBnClickedBnApp(UINT nCtlId);
 };
