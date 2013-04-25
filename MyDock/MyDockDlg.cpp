@@ -7,12 +7,6 @@
 #include "MyDockDlg.h"
 #include "afxdialogex.h"
 
-#include <shlobj.h>
-#include <shlguid.h>
-#include <shellapi.h>
-#include <commctrl.h>
-#include <commoncontrols.h>
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -78,95 +72,114 @@ BOOL CMyDockDlg::OnInitDialog()
 
 CMyDockDlg::~CMyDockDlg(){
 	
-//	for (std::vector<CButton*>::iterator i = m_vpstnApp.begin(); i != m_vpstnApp.end(); i++ ){
-	for (std::vector<CStatic*>::iterator i = m_vpstnApp.begin(); i != m_vpstnApp.end(); i++ ){
-		delete *i;
+	for (std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+		if ( i->pStn ){
+			delete i->pStn;
+		}
+
+		if ( i->hIcon ){
+			DestroyIcon( i->hIcon );
+		}
+
+		if ( i->pTipCtl ){
+			delete i->pTipCtl;
+		}
 	}
 }
 
 
 
 void CMyDockDlg::Loading( void ){
+	CString strKey[6] = { "link", "para", "workdir", "tip", "icon", "icoid" };
 	CString strSettingFile;
-	CString strKey;
-	CString strSection = "AppList";
-	UINT nSettingItemCnt = 0;
+	CString strBuff;
+	CString strSection;
+//	UINT nSettingItemCnt = 0;
 	UINT i;
 
 	GetModuleFileName( NULL, strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
 	strSettingFile.ReleaseBuffer();
 	strSettingFile = strSettingFile.Left( strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
 	TRACE( "%s\n", strSettingFile );
-	
-	m_vstrApp.resize( MAX_APP_NUM );
-	
+
 	for ( i = 0; i < MAX_APP_NUM; i++ ){
-		strKey.Format( "App%d", i + 1 );
-		GetPrivateProfileString( strSection, strKey, "", m_vstrApp.at(i).GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
-		m_vstrApp.at(i).ReleaseBuffer();
-		
-		if ( !m_vstrApp.at(i).IsEmpty() ){
-			nSettingItemCnt++;
-			TRACE( "%s:%s\n", strKey, m_vstrApp.at(i) );
+		ST_APP_INFO stAppInfo;
+		stAppInfo.pStn = NULL;
+		stAppInfo.hIcon = NULL;
+		stAppInfo.nIcoId = 0;
+		stAppInfo.pTipCtl = NULL;
+
+		strSection.Format( "App%d", i + 1  );
+		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		stAppInfo.strLink.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		stAppInfo.strPara.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		stAppInfo.strDir.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		stAppInfo.strTip.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		stAppInfo.strIcon.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[5], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		strBuff.ReleaseBuffer();
+		stAppInfo.nIcoId = strtol( strBuff, NULL, 10 );
+
+		if ( !stAppInfo.strLink.IsEmpty() ){
+			m_vstAppInfo.push_back( stAppInfo );
+			TRACE( "%s:%s\n", strKey[0], stAppInfo.strLink );
 		}
 	}
 
-	m_vpstnApp.resize( nSettingItemCnt );
-	m_vhIcon.resize( nSettingItemCnt );
-	//// Get the icon index using SHGetFileInfo
-	//SHFILEINFO sfi = {0};
-	//SHGetFileInfo(m_vstrApp.at(0), -1, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX);
-
-	//// Retrieve the system image list.
-	//// To get the 48x48 icons, use SHIL_EXTRALARGE
-	//// To get the 256x256 icons (Vista only), use SHIL_JUMBO
-	//HIMAGELIST* imageList;
-	//HRESULT hResult = SHGetImageList(SHIL_EXTRALARGE, IID_IImageList, (void**)&imageList);
-
-	//if (hResult == S_OK) {
-	//  // Get the icon we need from the list. Note that the HIMAGELIST we retrieved
-	//  // earlier needs to be casted to the IImageList interface before use.
-	//  HICON hIcon;
-	//  hResult = ((IImageList*)imageList)->GetIcon(sfi.iIcon, ILD_TRANSPARENT, &hIcon);
-
-	//  if (hResult == S_OK) {
-	//	// Do something with the icon here.
-	//	// For example, in wxWidgets:
-	//	  i = 0;
-	//	m_vpstnApp.at(i) = new CButton;
-
-
-	//	m_vpstnApp.at(i)->Create( "1", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect( 50, 50, 50 + APP_STN_WIDTH, 50 + APP_STN_HEIGHT), this, IDC_STN_HEAD + i );
-	//	m_vpstnApp.at(i)->SetIcon( hIcon );
-	//  }
-	//}
-
-	
 	const int s  = APP_STN_SPACING;
 	const int w  = APP_STN_WIDTH;
 	const int h  = APP_STN_HEIGHT;
 	const int wd = APP_STN_W_DISTANCE;
 	const int hd = APP_STN_H_DISTANCE;
 	int l,t,r,b;
-	SHFILEINFO stSfi = { 0 };
+	UINT nID;
+	UINT nIcoId;
 //	HICON IconLarge;
-	for ( i = 0; i < nSettingItemCnt; i++ ){
-	//	m_vpstnApp.at(i) = new CButton;
-		m_vpstnApp.at(i) = new CStatic;
-		if ( "\\" == m_vstrApp.at(i).Mid( m_vstrApp.at(i).GetLength() - 1, 1 ) ){
-			// opened folder icon
-			ExtractIconEx("Shell32.dll", 4, NULL, &m_vhIcon.at(i), 1);
-		} else {
-			UINT IconNum = ExtractIconEx( m_vstrApp.at(i), -1, NULL, &m_vhIcon.at(i), 0 );
-			ExtractIconEx( m_vstrApp.at(i), 0, NULL, &m_vhIcon.at(i), IconNum );
-		}
+	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+		if ( i->strLink.IsEmpty() ){
+			
+		}else{
+			//GetEnvironmentVariable();
+			i->pStn = new CStatic;
+			if ( i->strIcon.IsEmpty() ){
+				if ( "\\" == i->strLink.Right( 1 ) ){
+					ExtractIconEx( "Shell32.dll", 4, NULL, &(i->hIcon), 1 );		// opened folder icon
+				} else {
+					UINT IconNum = ExtractIconEx( i->strLink, -1, NULL, NULL, 0 );
+					ExtractIconEx( i->strLink, 0, NULL, &(i->hIcon), 1 );
+				}
+			} else {
+				UINT IconNum = ExtractIconEx( i->strIcon, -1, NULL, NULL, 0 );
+				nIcoId = ( i->nIcoId < IconNum ) ? i->nIcoId : 0;
+				ExtractIconEx( i->strIcon, nIcoId, NULL, &(i->hIcon), 1 );
+			}
 
-		l = s;
-		t = s + i * hd;
-		r = wd;
-		b = t + h;	//(i + 1) * hd;
-		m_vpstnApp.at(i)->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + i );
-		m_vpstnApp.at(i)->SetIcon( m_vhIcon.at(i) );
+			l = s;
+			t = s + distance( m_vstAppInfo.begin(), i ) * hd;
+			r = wd;
+			b = t + h;
+			nID = IDC_STN_HEAD + distance( m_vstAppInfo.begin(), i );
+			if ( NULL == i->hIcon ){
+				
+			} else {
+				i->pStn->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, nID );
+				i->pStn->SetIcon( i->hIcon );
+				if ( ! i->strTip.IsEmpty() ){
+					i->pTipCtl = new CToolTipCtrl;
+					i->pTipCtl->Create( this );
+					i->pTipCtl->AddTool( GetDlgItem( nID ),i->strTip );
+				}
+			}
+		}
 	}
 }
 
@@ -333,9 +346,15 @@ void CMyDockDlg::OnCancel()
 
 BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 {
-	if ( pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE ){
-		//m_obj.SetFocus();
-		return TRUE;
+	//if ( pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE ){
+	//	//m_obj.SetFocus();
+	//	return TRUE;
+	//}
+
+	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+		if ( i->pTipCtl ){
+			i->pTipCtl->RelayEvent(pMsg);
+		}
 	}
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
@@ -343,8 +362,8 @@ BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 void CMyDockDlg::OnBnClickedBnApp( UINT nCtlId )
 {
 	UINT nId = nCtlId - IDC_STN_HEAD;
-
-	ShellExecute( NULL, _T("open") , m_vstrApp.at(nId), NULL, NULL, SW_SHOWNORMAL );
+	ST_APP_INFO &info = m_vstAppInfo[nId];
+	ShellExecute( NULL, "open", info.strLink, info.strPara, info.strDir, SW_SHOW );
 	DockedHidden( true );
 }
 

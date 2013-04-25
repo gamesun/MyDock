@@ -28,6 +28,20 @@ typedef enum _hide_posi{
 	TOP
 } enHidePosi;
 
+typedef struct _app_info {
+	CStatic* pStn;
+	CString strLink;
+	CString strPara;
+	CString strDir;
+	
+	CString strIcon;
+	HICON hIcon;
+	UINT nIcoId;
+	
+	CString strTip;
+	CToolTipCtrl* pTipCtl;
+} ST_APP_INFO;
+
 // CMyDockDlg 
 class CMyDockDlg : public CDialogEx
 {
@@ -56,11 +70,7 @@ protected:
 	DWORD m_dwLastActiveTime;
 	CRect m_rect;
 	
-	std::vector<CString> m_vstrApp;
-	//std::vector<CButton*> m_vpstnApp;
-	std::vector<CStatic*> m_vpstnApp;
-	
-	std::vector<HICON> m_vhIcon;
+	std::vector<ST_APP_INFO> m_vstAppInfo;
 
 	bool m_bIsDraging;
 	CPoint m_cpLBDown;
