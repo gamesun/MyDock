@@ -34,8 +34,13 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_WM_NCMOUSEMOVE()
 	ON_WM_TIMER()
 	ON_CONTROL_RANGE(STN_CLICKED, IDC_STN_HEAD, IDC_STN_END, &CMyDockDlg::OnBnClickedBnApp)
+	ON_CONTROL_RANGE(STN_CLICKED, IDC_STN_TITLE_HEAD, IDC_STN_TITLE_END, &CMyDockDlg::OnBnClickedBnAppTitle)
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
+	ON_COMMAND(ID_RCLICKMENU_SETTING, &CMyDockDlg::OnRclickmenuSetting)
+	ON_COMMAND(ID_RCLICKMENU_CLOSE, &CMyDockDlg::OnRclickmenuClose)
+	ON_WM_RBUTTONUP()
+	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 
@@ -52,6 +57,7 @@ BOOL CMyDockDlg::OnInitDialog()
  //   AfxGetMainWnd()->ShowWindow(SW_HIDE);
  //   ::SetWindowLong(AfxGetMainWnd()->m_hWnd, GWL_EXSTYLE, Style); 
  //   AfxGetMainWnd()->ShowWindow(SW_SHOW);
+
 
 	SetWindowPos( &wndTopMost, NULL, NULL, APP_WIDTH, APP_HEIGHT, SWP_NOMOVE );
 
@@ -73,8 +79,8 @@ BOOL CMyDockDlg::OnInitDialog()
 CMyDockDlg::~CMyDockDlg(){
 	
 	for (std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
-		if ( i->pStn ){
-			delete i->pStn;
+		if ( i->pStnIcon ){
+			delete i->pStnIcon;
 		}
 
 		if ( i->hIcon ){
@@ -87,47 +93,47 @@ CMyDockDlg::~CMyDockDlg(){
 	}
 }
 
-
-
 void CMyDockDlg::Loading( void ){
-	CString strKey[6] = { "link", "para", "workdir", "tip", "icon", "icoid" };
-	CString strSettingFile;
+	CString strKey[7] = { "link", "para", "workdir", "tip", "icon", "icoid", "title" };
 	CString strBuff;
 	CString strSection;
 //	UINT nSettingItemCnt = 0;
-	UINT i;
+	
+	GetModuleFileName( NULL, m_strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
+	m_strSettingFile.ReleaseBuffer();
+	m_strSettingFile = m_strSettingFile.Left( m_strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
+	TRACE( "%s\n", m_strSettingFile );
 
-	GetModuleFileName( NULL, strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
-	strSettingFile.ReleaseBuffer();
-	strSettingFile = strSettingFile.Left( strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
-	TRACE( "%s\n", strSettingFile );
-
-	for ( i = 0; i < MAX_APP_NUM; i++ ){
+	for ( UINT i = 0; i < MAX_APP_NUM; i++ ){
 		ST_APP_INFO stAppInfo;
-		stAppInfo.pStn = NULL;
+		stAppInfo.pStnIcon = NULL;
+		stAppInfo.pStnTitle = NULL;
 		stAppInfo.hIcon = NULL;
 		stAppInfo.nIcoId = 0;
 		stAppInfo.pTipCtl = NULL;
 
 		strSection.Format( "App%d", i + 1  );
-		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strLink.ReleaseBuffer();
 
-		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strPara.ReleaseBuffer();
 
-		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strDir.ReleaseBuffer();
 
-		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTip.ReleaseBuffer();
 
-		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strIcon.ReleaseBuffer();
 
-		GetPrivateProfileString( strSection, strKey[5], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, strSettingFile );
+		GetPrivateProfileString( strSection, strKey[5], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		strBuff.ReleaseBuffer();
 		stAppInfo.nIcoId = strtol( strBuff, NULL, 10 );
+
+		GetPrivateProfileString( strSection, strKey[6], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strTitle.ReleaseBuffer();
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -141,15 +147,15 @@ void CMyDockDlg::Loading( void ){
 	const int wd = APP_STN_W_DISTANCE;
 	const int hd = APP_STN_H_DISTANCE;
 	int l,t,r,b;
-	UINT nID;
 	UINT nIcoId;
+	int nIdx;
 //	HICON IconLarge;
 	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
-		if ( i->strLink.IsEmpty() ){
-			
-		}else{
+		
+		nIdx = distance( m_vstAppInfo.begin(), i );
+		if ( ! i->strLink.IsEmpty() ){
 			//GetEnvironmentVariable();
-			i->pStn = new CStatic;
+			
 			if ( i->strIcon.IsEmpty() ){
 				if ( "\\" == i->strLink.Right( 1 ) ){
 					ExtractIconEx( "Shell32.dll", 4, NULL, &(i->hIcon), 1 );		// opened folder icon
@@ -163,24 +169,49 @@ void CMyDockDlg::Loading( void ){
 				ExtractIconEx( i->strIcon, nIcoId, NULL, &(i->hIcon), 1 );
 			}
 
-			l = s;
-			t = s + distance( m_vstAppInfo.begin(), i ) * hd;
-			r = wd;
-			b = t + h;
-			nID = IDC_STN_HEAD + distance( m_vstAppInfo.begin(), i );
+			l = APP_STN_SPACING;
+			t = APP_STN_TOP + nIdx * hd;
+			r = APP_STN_W_DISTANCE;
+			b = t + APP_STN_HEIGHT;
 			if ( NULL == i->hIcon ){
 				
 			} else {
-				i->pStn->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, nID );
-				i->pStn->SetIcon( i->hIcon );
+				i->pStnIcon = new CStatic;
+				i->pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
+				i->pStnIcon->SetIcon( i->hIcon );
 				if ( ! i->strTip.IsEmpty() ){
 					i->pTipCtl = new CToolTipCtrl;
 					i->pTipCtl->Create( this );
-					i->pTipCtl->AddTool( GetDlgItem( nID ),i->strTip );
+					i->pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ),i->strTip );
 				}
 			}
 		}
+
+		if ( ! i->strTitle.IsEmpty() ){
+			i->pStnTitle = new CStatic;
+			i->pStnTitle->Create( i->strTitle, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, CRect( r, t + 2, r + 100, b ), this, IDC_STN_TITLE_HEAD + nIdx );
+			
+			CFont* pFont = new CFont;
+			pFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
+				ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+				CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+				DEFAULT_PITCH&FF_SWISS, "SimSun" );
+
+			i->pStnTitle->SetFont( pFont );
+
+			//CFont* pFont = i->pStnTitle->GetFont();
+			//LOGFONT LogFont;
+			//pFont->GetLogFont(&LogFont);
+			//LogFont.lfUnderline = 1;
+			//LogFont.lfHeight = 12;
+			//pFont->Detach();
+			//pFont->CreateFontIndirect(&LogFont);
+			//i->pStnTitle->SetFont( pFont );
+			//pFont->Detach();
+		}
 	}
+
+	SetWindowPos( &wndTopMost, NULL, NULL, APP_WIDTH, ( APP_STN_TOP + APP_STN_HEIGHT * ++nIdx + APP_STN_BOTTOM ), SWP_NOMOVE );
 }
 
 void CMyDockDlg::OnPaint()
@@ -213,7 +244,39 @@ HCURSOR CMyDockDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+HBRUSH CMyDockDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
 
+	//if ( nCtlColor == CTLCOLOR_STATIC &&
+	//	( IDC_STN_TITLE_HEAD <= pWnd->GetDlgCtrlID() ) &&
+	//	( pWnd->GetDlgCtrlID() <= IDC_STN_TITLE_END ) ){
+
+	//	CFont * cFont = new CFont;
+	//	cFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
+	//		ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+	//		CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+	//		DEFAULT_PITCH&FF_SWISS, "SimSun" );
+	////	
+	////	pDC->SetBkMode(TRANSPARENT);
+	////	pDC->SetTextColor(RGB(255,255,0));
+	//	pWnd->SetFont(cFont);
+	////	HBRUSH B = CreateSolidBrush(RGB(125,125,255)); 
+	////	return (HBRUSH) B;
+	////case CTLCOLOR_LISTBOX:
+	////	pDC->SetTextColor(RGB(0,0,0));
+	////	pDC->SetBkColor(RGB(150,175,250));
+	////	return (HBRUSH) (m_pBrush->GetSafeHandle());
+	////case CTLCOLOR_EDIT:
+	////	pDC->SetTextColor(RGB(0,0,0));
+	////	pDC->SetBkColor(RGB(150,175,250));
+	////	return (HBRUSH) (m_pBrush->GetSafeHandle());
+	////case CTLCOLOR_DLG:
+	////	m_brush.CreateSolidBrush( RGB( 200, 200, 200 ) );
+	////	return (HBRUSH)m_brush.GetSafeHandle();
+	//}
+	return hbr;
+}
 
 void CMyDockDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
@@ -367,6 +430,10 @@ void CMyDockDlg::OnBnClickedBnApp( UINT nCtlId )
 	DockedHidden( true );
 }
 
+void CMyDockDlg::OnBnClickedBnAppTitle( UINT nCtlId )
+{
+	OnBnClickedBnApp( nCtlId - IDC_STN_TITLE_HEAD + IDC_STN_HEAD );
+}
 
 void CMyDockDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
@@ -381,3 +448,30 @@ void CMyDockDlg::OnLButtonUp(UINT nFlags, CPoint point)
 	m_bIsDraging = false;
 	CDialogEx::OnLButtonUp(nFlags, point);
 }
+
+
+void CMyDockDlg::OnRButtonUp(UINT nFlags, CPoint point)
+{
+	CPoint pt;
+	CMenu dMenu;
+	if(!dMenu.LoadMenu(IDR_MENU1))
+		AfxThrowResourceException();
+	CMenu* pPopMenu=dMenu.GetSubMenu(0);
+	ASSERT(pPopMenu!=NULL);
+	::GetCursorPos(&pt);
+	pPopMenu->TrackPopupMenu( TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this );
+
+	CDialogEx::OnRButtonUp(nFlags, point);
+}
+
+void CMyDockDlg::OnRclickmenuSetting()
+{
+	ShellExecute( NULL, "open", m_strSettingFile, NULL, NULL, SW_SHOW );
+}
+
+
+void CMyDockDlg::OnRclickmenuClose()
+{
+	EndDialog( 0 );
+}
+

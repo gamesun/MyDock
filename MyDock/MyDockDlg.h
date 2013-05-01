@@ -10,16 +10,23 @@
 #define	IDC_STN_HEAD				IDC_STN_APP1
 #define IDC_STN_END					(IDC_STN_APP1 + MAX_APP_NUM)
 
+#define MAX_APP_NUM					128
+#define	IDC_STN_TITLE_HEAD			IDC_STN_TITLE1
+#define IDC_STN_TITLE_END			(IDC_STN_TITLE1 + MAX_APP_NUM)
+
 
 #define APP_STN_WIDTH				20
 #define APP_STN_HEIGHT				20
 
-#define APP_STN_SPACING	 			3
+#define APP_STN_TOP					10
+#define APP_STN_BOTTOM				40
+
+#define APP_STN_SPACING	 			5
 #define APP_STN_W_DISTANCE 			(APP_STN_SPACING + APP_STN_WIDTH)
 #define APP_STN_H_DISTANCE 			(APP_STN_SPACING + APP_STN_HEIGHT)
 
-#define APP_WIDTH					(APP_STN_SPACING + APP_STN_WIDTH + APP_STN_SPACING)
-#define APP_HEIGHT					(APP_STN_SPACING + APP_STN_HEIGHT * 10 + APP_STN_SPACING)
+#define APP_WIDTH					(APP_STN_SPACING + APP_STN_WIDTH + 100 + APP_STN_SPACING)
+#define APP_HEIGHT					( APP_STN_TOP + APP_STN_HEIGHT * 10 + APP_STN_BOTTOM )
 
 typedef enum _hide_posi{
 	NO,
@@ -29,7 +36,10 @@ typedef enum _hide_posi{
 } enHidePosi;
 
 typedef struct _app_info {
-	CStatic* pStn;
+	CStatic* pStnIcon;
+	CStatic* pStnTitle;
+
+	CString strTitle;
 	CString strLink;
 	CString strPara;
 	CString strDir;
@@ -64,6 +74,8 @@ public:
 
 protected:
 	HICON m_hIcon;
+	CBrush m_brush;
+	CString m_strSettingFile;
 	int m_screenX;
 	int m_screenY;
 	enHidePosi m_enHidePosi;
@@ -87,6 +99,12 @@ public:
 	virtual void OnCancel();
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	void OnBnClickedBnApp(UINT nCtlId);
+	void OnBnClickedBnAppTitle(UINT nCtlId);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnRclickmenuSetting();
+	afx_msg void OnRclickmenuClose();
+	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 };
+
