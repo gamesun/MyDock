@@ -63,7 +63,7 @@ BOOL CMyDockDlg::OnInitDialog()
 
 	m_screenX = GetSystemMetrics( SM_CXSCREEN );
 	m_screenY = GetSystemMetrics( SM_CYSCREEN );
-	m_dwLastActiveTime = GetTickCount();
+	//m_dwLastActiveTime = GetTickCount();
 	m_enHidePosi = NO;
 	SetTimer( TIMER_EVENT_ID_100MS, 100, NULL );
 
@@ -71,13 +71,18 @@ BOOL CMyDockDlg::OnInitDialog()
 
 	OleInitialize( NULL );
 
-	Loading();
+	LoadSetting();
+
+	m_dwLastActiveTime = GetTickCount();
+	DockedShow();
 
 	return TRUE;  
 }
 
 CMyDockDlg::~CMyDockDlg(){
 	
+	SaveSetting();
+
 	for (std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 		if ( i->pStnIcon ){
 			delete i->pStnIcon;
@@ -93,16 +98,26 @@ CMyDockDlg::~CMyDockDlg(){
 	}
 }
 
-void CMyDockDlg::Loading( void ){
+void CMyDockDlg::LoadSetting( void ){
 	CString strKey[7] = { "link", "para", "workdir", "tip", "icon", "icoid", "title" };
 	CString strBuff;
 	CString strSection;
+	int nScreenX, nScreenY;
+
 //	UINT nSettingItemCnt = 0;
 	
 	GetModuleFileName( NULL, m_strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
 	m_strSettingFile.ReleaseBuffer();
 	m_strSettingFile = m_strSettingFile.Left( m_strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
 	TRACE( "%s\n", m_strSettingFile );
+
+	GetPrivateProfileString( "options", "screen x", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	nScreenX = strtol( strBuff, NULL, 10 );
+
+	GetPrivateProfileString( "options", "screen y", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	nScreenY = strtol( strBuff, NULL, 10 );
 
 	for ( UINT i = 0; i < MAX_APP_NUM; i++ ){
 		ST_APP_INFO stAppInfo;
@@ -149,6 +164,7 @@ void CMyDockDlg::Loading( void ){
 	int l,t,r,b;
 	UINT nIcoId;
 	int nIdx;
+	int nMaxWidth = 0;
 //	HICON IconLarge;
 	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 		
@@ -199,6 +215,26 @@ void CMyDockDlg::Loading( void ){
 
 			i->pStnTitle->SetFont( pFont );
 
+			CRect rect;
+			CSize size( 0, 0 );
+			i->pStnTitle->GetWindowRect( rect );
+			ScreenToClient( &rect );
+			CClientDC dc( i->pStnTitle );
+			CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
+			//CString str;
+			//i->pStnTitle->GetWindowText( str );
+			//if( ::GetTextExtentPoint32( (HDC)dc, str, str.GetLength(), &size ) ){
+			if( ::GetTextExtentPoint32( (HDC)dc, i->strTitle, i->strTitle.GetLength(), &size ) ){
+				rect.right = rect.left + size.cx;
+				rect.bottom = rect.top + size.cy;
+				nMaxWidth = ( nMaxWidth < rect.Width() ) ? rect.Width() : nMaxWidth;
+			}/* else {
+				i->pStnTitle->SetWindowText( "GetTextExtentPoint32 fail to get the size of text!" );
+			}*/
+			i->pStnTitle->MoveWindow( rect );
+			dc.SelectObject( pOldFont );
+
+
 			//CFont* pFont = i->pStnTitle->GetFont();
 			//LOGFONT LogFont;
 			//pFont->GetLogFont(&LogFont);
@@ -211,7 +247,24 @@ void CMyDockDlg::Loading( void ){
 		}
 	}
 
-	SetWindowPos( &wndTopMost, NULL, NULL, APP_WIDTH, ( APP_STN_TOP + APP_STN_HEIGHT * ++nIdx + APP_STN_BOTTOM ), SWP_NOMOVE );
+	SetWindowPos( 
+		&wndTopMost,
+		nScreenX,
+		nScreenY,
+		(APP_STN_SPACING + APP_STN_WIDTH + nMaxWidth + APP_STN_SPACING), 
+		( APP_STN_TOP + APP_STN_HEIGHT * ( nIdx + 1 ) + APP_STN_BOTTOM ), 
+		SWP_SHOWWINDOW );
+}
+
+void CMyDockDlg::SaveSetting( void )
+{
+	char szBuff[16];
+
+	_itoa_s( m_rect.left, szBuff, 10 );
+	WritePrivateProfileString( "options", "screen x", szBuff, m_strSettingFile );
+
+	_itoa_s( m_rect.top, szBuff, 10 );
+	WritePrivateProfileString( "options", "screen y", szBuff, m_strSettingFile );
 }
 
 void CMyDockDlg::OnPaint()

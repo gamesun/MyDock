@@ -25,7 +25,7 @@
 #define APP_STN_W_DISTANCE 			(APP_STN_SPACING + APP_STN_WIDTH)
 #define APP_STN_H_DISTANCE 			(APP_STN_SPACING + APP_STN_HEIGHT)
 
-#define APP_WIDTH					(APP_STN_SPACING + APP_STN_WIDTH + 100 + APP_STN_SPACING)
+#define APP_WIDTH					(APP_STN_SPACING + APP_STN_WIDTH + 500 + APP_STN_SPACING)
 #define APP_HEIGHT					( APP_STN_TOP + APP_STN_HEIGHT * 10 + APP_STN_BOTTOM )
 
 typedef enum _hide_posi{
@@ -60,7 +60,8 @@ public:
 	CMyDockDlg(CWnd* pParent = NULL);	// 
 	~CMyDockDlg();
 
-	void Loading( void );
+	void LoadSetting( void );
+	void SaveSetting( void );
 	BOOL IsMouseInWindow( void );
 	void DockedShow( void );
 	void DockedHidden( bool bIsForceHide = false );
