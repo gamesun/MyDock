@@ -41,6 +41,9 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_COMMAND(ID_RCLICKMENU_CLOSE, &CMyDockDlg::OnRclickmenuClose)
 	ON_WM_RBUTTONUP()
 	ON_WM_CTLCOLOR()
+	ON_WM_SETCURSOR()
+	ON_COMMAND(ID_RCLICKMENU_SHOWTITLES, &CMyDockDlg::OnRclickmenuShowtitles)
+	ON_WM_ERASEBKGND()
 END_MESSAGE_MAP()
 
 
@@ -60,6 +63,8 @@ BOOL CMyDockDlg::OnInitDialog()
 
 
 	SetWindowPos( &wndTopMost, NULL, NULL, APP_WIDTH, APP_HEIGHT, SWP_NOMOVE );
+	
+//	m_hCursor = SetCursor( LoadCursor( 0, IDC_ARROW ) );
 
 	m_screenX = GetSystemMetrics( SM_CXSCREEN );
 	m_screenY = GetSystemMetrics( SM_CYSCREEN );
@@ -103,8 +108,6 @@ void CMyDockDlg::LoadSetting( void ){
 	CString strBuff;
 	CString strSection;
 	int nScreenX, nScreenY;
-
-//	UINT nSettingItemCnt = 0;
 	
 	GetModuleFileName( NULL, m_strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
 	m_strSettingFile.ReleaseBuffer();
@@ -118,6 +121,10 @@ void CMyDockDlg::LoadSetting( void ){
 	GetPrivateProfileString( "options", "screen y", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	strBuff.ReleaseBuffer();
 	nScreenY = strtol( strBuff, NULL, 10 );
+
+	GetPrivateProfileString( "options", "show titles", "no", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	m_bIsShowTitle = ( "yes" == strBuff ) ? true : false;
 
 	for ( UINT i = 0; i < MAX_APP_NUM; i++ ){
 		ST_APP_INFO stAppInfo;
@@ -164,7 +171,8 @@ void CMyDockDlg::LoadSetting( void ){
 	int l,t,r,b;
 	UINT nIcoId;
 	int nIdx;
-	int nMaxWidth = 0;
+	
+	m_nTitleMaxWidth = 0;
 //	HICON IconLarge;
 	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 		
@@ -192,9 +200,11 @@ void CMyDockDlg::LoadSetting( void ){
 			if ( NULL == i->hIcon ){
 				
 			} else {
-				i->pStnIcon = new CStatic;
+//				i->pStnIcon = new CStatic;
+				i->pStnIcon = new CTransparentImage;
 				i->pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
-				i->pStnIcon->SetIcon( i->hIcon );
+//				i->pStnIcon->SetIcon( i->hIcon );
+				i->pStnIcon->SetIcon( i->hIcon, 16, 16 );
 				if ( ! i->strTip.IsEmpty() ){
 					i->pTipCtl = new CToolTipCtrl;
 					i->pTipCtl->Create( this );
@@ -206,7 +216,7 @@ void CMyDockDlg::LoadSetting( void ){
 		if ( ! i->strTitle.IsEmpty() ){
 			i->pStnTitle = new CStatic;
 			i->pStnTitle->Create( i->strTitle, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, CRect( r, t + 2, r + 100, b ), this, IDC_STN_TITLE_HEAD + nIdx );
-			
+
 			CFont* pFont = new CFont;
 			pFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
 				ANSI_CHARSET, OUT_DEFAULT_PRECIS,
@@ -227,7 +237,7 @@ void CMyDockDlg::LoadSetting( void ){
 			if( ::GetTextExtentPoint32( (HDC)dc, i->strTitle, i->strTitle.GetLength(), &size ) ){
 				rect.right = rect.left + size.cx;
 				rect.bottom = rect.top + size.cy;
-				nMaxWidth = ( nMaxWidth < rect.Width() ) ? rect.Width() : nMaxWidth;
+				m_nTitleMaxWidth = ( m_nTitleMaxWidth < rect.Width() ) ? rect.Width() : m_nTitleMaxWidth;
 			}/* else {
 				i->pStnTitle->SetWindowText( "GetTextExtentPoint32 fail to get the size of text!" );
 			}*/
@@ -247,13 +257,11 @@ void CMyDockDlg::LoadSetting( void ){
 		}
 	}
 
-	SetWindowPos( 
-		&wndTopMost,
-		nScreenX,
-		nScreenY,
-		(APP_STN_SPACING + APP_STN_WIDTH + nMaxWidth + APP_STN_SPACING), 
-		( APP_STN_TOP + APP_STN_HEIGHT * ( nIdx + 1 ) + APP_STN_BOTTOM ), 
-		SWP_SHOWWINDOW );
+	::SetClassLongPtr( m_vstAppInfo.at(0).pStnTitle->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
+
+	AppTitle( m_bIsShowTitle );
+
+	SetWindowPos( &wndTopMost, nScreenX, nScreenY, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE );
 }
 
 void CMyDockDlg::SaveSetting( void )
@@ -265,6 +273,8 @@ void CMyDockDlg::SaveSetting( void )
 
 	_itoa_s( m_rect.top, szBuff, 10 );
 	WritePrivateProfileString( "options", "screen y", szBuff, m_strSettingFile );
+
+	WritePrivateProfileString( "options", "show titles", ( m_bIsShowTitle ? "yes" : "no" ), m_strSettingFile );
 }
 
 void CMyDockDlg::OnPaint()
@@ -288,6 +298,18 @@ void CMyDockDlg::OnPaint()
 	}
 	else
 	{
+		CClientDC pDC(this);
+		CRect m_rcClient, rectangle;  
+		this->GetClientRect(&m_rcClient);
+		int nWidth  = m_rcClient.Width();
+		int nHeight = m_rcClient.Height();	
+		for(int i=0; i<nWidth; i++)
+		{
+			rectangle.SetRect(i, 0, i+1, nHeight);
+			//dc.ExcludeClipRect(&rect)
+			pDC.FillSolidRect(&rectangle, RGB(MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30));
+		}
+		
 		CDialogEx::OnPaint();
 	}
 }
@@ -328,7 +350,18 @@ HBRUSH CMyDockDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	////	m_brush.CreateSolidBrush( RGB( 200, 200, 200 ) );
 	////	return (HBRUSH)m_brush.GetSafeHandle();
 	//}
+	if ( nCtlColor == CTLCOLOR_STATIC ){
+		pDC->SetTextColor( RGB( 255, 255, 255 ) );
+		pDC->SetBkMode( TRANSPARENT );
+		return (HBRUSH)::GetStockObject( NULL_BRUSH );
+	}
 	return hbr;
+}
+
+BOOL CMyDockDlg::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
+{
+	SetCursor( m_hCursor );
+	return CDialogEx::OnSetCursor(pWnd, nHitTest, message);
 }
 
 void CMyDockDlg::OnMouseMove(UINT nFlags, CPoint point)
@@ -340,8 +373,24 @@ void CMyDockDlg::OnMouseMove(UINT nFlags, CPoint point)
 		long x = (long)rc.left + (long)point.x - (long)m_cpLBDown.x;
 		long y = (long)rc.top + (long)point.y - (long)m_cpLBDown.y;
 
-		SetWindowPos( this, x, y, rc.Width(), rc.Height(), SWP_NOZORDER );
+	//	SetWindowPos( this, x, y, rc.Width(), rc.Height(), SWP_NOZORDER );
+		SetWindowPos( this, x, y, NULL, NULL, SWP_NOZORDER | SWP_NOSIZE );
 	}
+
+	//CRect rect;
+	//
+	//GetDlgItem( IDC_STN_TITLE_HEAD )->GetWindowRect( &rect );
+	//ScreenToClient( &rect );
+
+	//TRACE( "%d,%d\n" , point.x, point.y );
+	//if ( rect.PtInRect( point ) ){
+	//	//::SetCursor(AfxGetApp()->LoadStandardCursor(IDC_HAND));
+	//	m_hCursor = SetCursor( LoadCursor(0, IDC_HAND) );
+	//} else {
+	//	//::SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW));
+	//	m_hCursor = SetCursor( LoadCursor(0, IDC_ARROW) );
+	//}
+
 	CDialogEx::OnMouseMove(nFlags, point);
 }
 
@@ -414,12 +463,12 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 	CRect rect;
 	GetWindowRect( &rect );
 	
-	if ( ( m_enHidePosi ==NO && !IsMouseInWindow() ) || 
+	if ( ( m_enHidePosi == NO && !IsMouseInWindow() ) || 
 		( bIsForceHide ) ){
 		m_rect = rect;
 		if ( m_rect.top <=0 ){
 			m_enHidePosi = TOP;
-			ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
 			this->SetWindowPos( NULL, m_rect.left, 0, m_rect.Width(), 2, SWP_NOCOPYBITS );
 
 			m_rect.bottom -= m_rect.top;
@@ -427,7 +476,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			
 		} else if ( m_rect.left <=0 ){ 
 			m_enHidePosi = LEFT;
-			ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
 			this->SetWindowPos( NULL, 0, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
 
 			m_rect.right -= m_rect.left;
@@ -435,7 +484,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			
 		} else if ( m_rect.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
-			ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
 			this->SetWindowPos( NULL, m_screenX-2, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
 
 			m_rect.left  = m_screenX - m_rect.Width();
@@ -443,7 +492,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			
 		} else {
 			m_enHidePosi = NO;
-		}	
+		}
 	}
 }
 
@@ -511,6 +560,7 @@ void CMyDockDlg::OnRButtonUp(UINT nFlags, CPoint point)
 		AfxThrowResourceException();
 	CMenu* pPopMenu=dMenu.GetSubMenu(0);
 	ASSERT(pPopMenu!=NULL);
+	pPopMenu->CheckMenuItem( ID_RCLICKMENU_SHOWTITLES, ( m_bIsShowTitle ? MF_CHECKED : MF_UNCHECKED ) );
 	::GetCursorPos(&pt);
 	pPopMenu->TrackPopupMenu( TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this );
 
@@ -528,3 +578,56 @@ void CMyDockDlg::OnRclickmenuClose()
 	EndDialog( 0 );
 }
 
+
+
+BOOL CMyDockDlg::PreCreateWindow(CREATESTRUCT& cs)
+{
+
+//	cs.lpszClass = AfxRegisterWndClass( CS_HREDRAW|CS_VREDRAW ,0 ,(HBRUSH)::GetStockObject(0) ,0);
+	return CDialogEx::PreCreateWindow(cs);
+}
+
+
+void CMyDockDlg::OnRclickmenuShowtitles()
+{
+	m_bIsShowTitle = !m_bIsShowTitle;
+
+	AppTitle( m_bIsShowTitle );
+}
+
+void CMyDockDlg::AppTitle( bool bIsShow )
+{
+	if ( bIsShow ){
+		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+			if ( i->pStnTitle ){
+				i->pStnTitle->ModifyStyle( 0, WS_VISIBLE );
+			}
+		}
+
+		m_rect.right = m_rect.left + (APP_STN_SPACING + APP_STN_WIDTH + m_nTitleMaxWidth + APP_STN_SPACING);
+		m_rect.bottom = m_rect.top + ( APP_STN_TOP + APP_STN_HEIGHT * ( distance( m_vstAppInfo.begin(), m_vstAppInfo.end() ) + 1 ) + APP_STN_BOTTOM );
+
+		SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
+		m_enHidePosi = NO;
+	} else {
+		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+			if ( i->pStnTitle ){
+				i->pStnTitle->ModifyStyle( WS_VISIBLE, 0 );
+			}
+		}
+
+		m_rect.right = m_rect.left + (APP_STN_SPACING + APP_STN_WIDTH + APP_STN_SPACING);
+		m_rect.bottom = m_rect.top + ( APP_STN_TOP + APP_STN_HEIGHT * ( distance( m_vstAppInfo.begin(), m_vstAppInfo.end() ) + 1 ) + APP_STN_BOTTOM );
+
+		SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
+		m_enHidePosi = NO;
+	}
+	
+	Invalidate( FALSE );	// do not erase the background
+}
+
+BOOL CMyDockDlg::OnEraseBkgnd(CDC* pDC)
+{
+//	return TRUE;
+	return CDialogEx::OnEraseBkgnd(pDC);
+}

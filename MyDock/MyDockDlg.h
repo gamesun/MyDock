@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "TransparentImage.h"
 
 #define TIMER_EVENT_ID_100MS		100
 
@@ -19,7 +20,7 @@
 #define APP_STN_HEIGHT				20
 
 #define APP_STN_TOP					10
-#define APP_STN_BOTTOM				40
+#define APP_STN_BOTTOM				20
 
 #define APP_STN_SPACING	 			5
 #define APP_STN_W_DISTANCE 			(APP_STN_SPACING + APP_STN_WIDTH)
@@ -36,7 +37,8 @@ typedef enum _hide_posi{
 } enHidePosi;
 
 typedef struct _app_info {
-	CStatic* pStnIcon;
+//	CStatic* pStnIcon;
+	CTransparentImage* pStnIcon;
 	CStatic* pStnTitle;
 
 	CString strTitle;
@@ -66,6 +68,8 @@ public:
 	void DockedShow( void );
 	void DockedHidden( bool bIsForceHide = false );
 
+	void AppTitle( bool bIsShow );
+
 	enum { IDD = IDD_MYDOCK_DIALOG };
 
 	protected:
@@ -75,18 +79,24 @@ public:
 
 protected:
 	HICON m_hIcon;
+	
 	CBrush m_brush;
 	CString m_strSettingFile;
+	
 	int m_screenX;
 	int m_screenY;
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
 	CRect m_rect;
-	
+	bool m_bIsShowTitle;
+	int m_nTitleMaxWidth;
+
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 
 	bool m_bIsDraging;
 	CPoint m_cpLBDown;
+
+	HCURSOR m_hCursor;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
@@ -107,5 +117,9 @@ public:
 	afx_msg void OnRclickmenuClose();
 	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
+	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+	afx_msg void OnRclickmenuShowtitles();
+	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 };
 
