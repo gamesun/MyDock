@@ -7,11 +7,15 @@
 #include "MyDockDlg.h"
 #include "afxdialogex.h"
 
+#include <dwmapi.h>
+#pragma comment( lib, "Dwmapi.lib")
+#pragma comment (lib, "UxTheme.lib")
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-using namespace std;
+//using namespace std;
 
 
 
@@ -44,6 +48,7 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_WM_SETCURSOR()
 	ON_COMMAND(ID_RCLICKMENU_SHOWTITLES, &CMyDockDlg::OnRclickmenuShowtitles)
 	ON_WM_ERASEBKGND()
+	ON_WM_NCCALCSIZE()
 END_MESSAGE_MAP()
 
 
@@ -60,7 +65,14 @@ BOOL CMyDockDlg::OnInitDialog()
  //   AfxGetMainWnd()->ShowWindow(SW_HIDE);
  //   ::SetWindowLong(AfxGetMainWnd()->m_hWnd, GWL_EXSTYLE, Style); 
  //   AfxGetMainWnd()->ShowWindow(SW_SHOW);
-
+	OSVERSIONINFO osvi;
+	ZeroMemory( &osvi, sizeof( OSVERSIONINFO ) );
+	osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
+	GetVersionEx( &osvi );
+	if ( osvi.dwMajorVersion >= 6 ){
+		MARGINS m = { -1 };
+		DwmExtendFrameIntoClientArea( m_hWnd, &m );
+    }
 
 	SetWindowPos( &wndTopMost, NULL, NULL, APP_WIDTH, APP_HEIGHT, SWP_NOMOVE );
 	
@@ -298,19 +310,32 @@ void CMyDockDlg::OnPaint()
 	}
 	else
 	{
-		CClientDC pDC(this);
-		CRect m_rcClient, rectangle;  
-		this->GetClientRect(&m_rcClient);
-		int nWidth  = m_rcClient.Width();
-		int nHeight = m_rcClient.Height();	
-		for(int i=0; i<nWidth; i++)
-		{
-			rectangle.SetRect(i, 0, i+1, nHeight);
-			//dc.ExcludeClipRect(&rect)
-			pDC.FillSolidRect(&rectangle, RGB(MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30));
-		}
+		//CClientDC pDC(this);
+		//CRect m_rcClient, rectangle;  
+		//this->GetClientRect(&m_rcClient);
+		//int nWidth  = m_rcClient.Width();
+		//int nHeight = m_rcClient.Height();	
+		//for(int i=0; i<nWidth; i++)
+		//{
+		//	rectangle.SetRect(i, 0, i+1, nHeight);
+		//	//dc.ExcludeClipRect(&rect)
+		//	pDC.FillSolidRect(&rectangle, RGB(MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30, MulDiv(i, 32, nWidth)+30));
+		//}
 		
 		CDialogEx::OnPaint();
+	}
+
+	CRect rect;
+    GetClientRect(&rect);
+    CBrush brush(RGB(0,0,0));
+    GetDC()->FillRect(&rect,&brush);
+   
+    DTTOPTS dto = { sizeof(DTTOPTS) };
+    dto.dwFlags = DTT_COMPOSITED | DTT_GLOWSIZE;
+    dto.iGlowSize = 20;
+    HTHEME htheme = OpenThemeData( m_hWnd, L"globals" );
+    if ( htheme == NULL ){
+		return;
 	}
 }
 
@@ -368,13 +393,15 @@ void CMyDockDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	m_dwLastActiveTime = GetTickCount();
 	if ( m_bIsDraging ){
-		CRect rc;
-		GetWindowRect( &rc );
-		long x = (long)rc.left + (long)point.x - (long)m_cpLBDown.x;
-		long y = (long)rc.top + (long)point.y - (long)m_cpLBDown.y;
+	//	CRect rc;
+	//	GetWindowRect( &rc );
+	//	long x = (long)rc.left + (long)point.x - (long)m_cpLBDown.x;
+	//	long y = (long)rc.top + (long)point.y - (long)m_cpLBDown.y;
 
-	//	SetWindowPos( this, x, y, rc.Width(), rc.Height(), SWP_NOZORDER );
-		SetWindowPos( this, x, y, NULL, NULL, SWP_NOZORDER | SWP_NOSIZE );
+	////	SetWindowPos( this, x, y, rc.Width(), rc.Height(), SWP_NOZORDER );
+	//	SetWindowPos( this, x, y, NULL, NULL, SWP_NOZORDER | SWP_NOSIZE );
+
+		PostMessage( WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM( point.x, point.y ) );
 	}
 
 	//CRect rect;
@@ -432,7 +459,7 @@ void CMyDockDlg::DockedShow( void ){
 	
 	if( m_enHidePosi != NO && IsMouseInWindow() ){
 
-	//	ModifyStyle( NULL, WS_SYSMENU | WS_THICKFRAME );
+		ModifyStyle( NULL, WS_THICKFRAME );	// Aero effect need the WS_THICKFRAME style.
 
 		int seq = 0;
 		switch( m_enHidePosi ){
@@ -468,7 +495,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 		m_rect = rect;
 		if ( m_rect.top <=0 ){
 			m_enHidePosi = TOP;
-		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, m_rect.left, 0, m_rect.Width(), 2, SWP_NOCOPYBITS );
 
 			m_rect.bottom -= m_rect.top;
@@ -476,7 +503,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			
 		} else if ( m_rect.left <=0 ){ 
 			m_enHidePosi = LEFT;
-		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, 0, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
 
 			m_rect.right -= m_rect.left;
@@ -484,7 +511,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			
 		} else if ( m_rect.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
-		//	ModifyStyle( WS_THICKFRAME | WS_SYSMENU, NULL );
+			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, m_screenX-2, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
 
 			m_rect.left  = m_screenX - m_rect.Width();
@@ -630,4 +657,10 @@ BOOL CMyDockDlg::OnEraseBkgnd(CDC* pDC)
 {
 //	return TRUE;
 	return CDialogEx::OnEraseBkgnd(pDC);
+}
+
+
+void CMyDockDlg::OnNcCalcSize(BOOL bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp)
+{
+//	CDialogEx::OnNcCalcSize(bCalcValidRects, lpncsp);		// comment here, to make the border = 0
 }

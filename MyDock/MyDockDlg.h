@@ -79,7 +79,7 @@ public:
 
 protected:
 	HICON m_hIcon;
-	
+
 	CBrush m_brush;
 	CString m_strSettingFile;
 	
@@ -121,5 +121,6 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	afx_msg void OnRclickmenuShowtitles();
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+	afx_msg void OnNcCalcSize(BOOL bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
 };
 
