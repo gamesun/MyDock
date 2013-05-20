@@ -6,6 +6,7 @@
 #include "MyDock.h"
 #include "MyDockDlg.h"
 #include "afxdialogex.h"
+#include "AboutDlg.h"
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -44,11 +45,13 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_COMMAND(ID_RCLICKMENU_SETTING, &CMyDockDlg::OnRclickmenuSetting)
 	ON_COMMAND(ID_RCLICKMENU_CLOSE, &CMyDockDlg::OnRclickmenuClose)
 	ON_WM_RBUTTONUP()
+	ON_WM_RBUTTONDOWN()
 	ON_WM_CTLCOLOR()
 	ON_WM_SETCURSOR()
 	ON_COMMAND(ID_RCLICKMENU_SHOWTITLES, &CMyDockDlg::OnRclickmenuShowtitles)
-	ON_WM_ERASEBKGND()
 	ON_WM_NCCALCSIZE()
+	ON_WM_ACTIVATE()
+	ON_COMMAND(ID_RCLICKMENU_ABOUT, &CMyDockDlg::OnRclickmenuAbout)
 END_MESSAGE_MAP()
 
 
@@ -65,11 +68,15 @@ BOOL CMyDockDlg::OnInitDialog()
  //   AfxGetMainWnd()->ShowWindow(SW_HIDE);
  //   ::SetWindowLong(AfxGetMainWnd()->m_hWnd, GWL_EXSTYLE, Style); 
  //   AfxGetMainWnd()->ShowWindow(SW_SHOW);
-	OSVERSIONINFO osvi;
-	ZeroMemory( &osvi, sizeof( OSVERSIONINFO ) );
-	osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
-	GetVersionEx( &osvi );
-	if ( osvi.dwMajorVersion >= 6 ){
+	m_bIsHiding = false;
+
+	ModifyStyle( NULL, WS_THICKFRAME );
+
+	OSVERSIONINFO m_osvi;
+	ZeroMemory( &m_osvi, sizeof( OSVERSIONINFO ) );
+	m_osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
+	GetVersionEx( &m_osvi );
+	if ( m_osvi.dwMajorVersion >= 6 ){
 		MARGINS m = { -1 };
 		DwmExtendFrameIntoClientArea( m_hWnd, &m );
     }
@@ -112,6 +119,14 @@ CMyDockDlg::~CMyDockDlg(){
 		if ( i->pTipCtl ){
 			delete i->pTipCtl;
 		}
+
+		if ( i->pStnTitle ){
+			delete i->pStnTitle;
+		}
+
+		if ( i->pStnFont ){
+			delete i->pStnFont;
+		}
 	}
 }
 
@@ -142,6 +157,7 @@ void CMyDockDlg::LoadSetting( void ){
 		ST_APP_INFO stAppInfo;
 		stAppInfo.pStnIcon = NULL;
 		stAppInfo.pStnTitle = NULL;
+		stAppInfo.pStnFont = NULL;
 		stAppInfo.hIcon = NULL;
 		stAppInfo.nIcoId = 0;
 		stAppInfo.pTipCtl = NULL;
@@ -229,13 +245,13 @@ void CMyDockDlg::LoadSetting( void ){
 			i->pStnTitle = new CStatic;
 			i->pStnTitle->Create( i->strTitle, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, CRect( r, t + 2, r + 100, b ), this, IDC_STN_TITLE_HEAD + nIdx );
 
-			CFont* pFont = new CFont;
-			pFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
+			i->pStnFont = new CFont;
+			i->pStnFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
 				ANSI_CHARSET, OUT_DEFAULT_PRECIS,
 				CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
 				DEFAULT_PITCH&FF_SWISS, "SimSun" );
 
-			i->pStnTitle->SetFont( pFont );
+			i->pStnTitle->SetFont( i->pStnFont );
 
 			CRect rect;
 			CSize size( 0, 0 );
@@ -325,17 +341,16 @@ void CMyDockDlg::OnPaint()
 		CDialogEx::OnPaint();
 	}
 
-	CRect rect;
-    GetClientRect(&rect);
-    CBrush brush(RGB(0,0,0));
-    GetDC()->FillRect(&rect,&brush);
-   
-    DTTOPTS dto = { sizeof(DTTOPTS) };
-    dto.dwFlags = DTT_COMPOSITED | DTT_GLOWSIZE;
-    dto.iGlowSize = 20;
-    HTHEME htheme = OpenThemeData( m_hWnd, L"globals" );
-    if ( htheme == NULL ){
-		return;
+	if ( m_osvi.dwMajorVersion >= 6 ){
+		CRect rect;
+		GetClientRect( &rect );
+		if ( m_bIsHiding ){
+			CBrush brush( RGB( 220, 220, 220 ) );
+			GetDC()->FillRect( &rect, &brush );
+		} else {
+			CBrush brush( RGB( 0, 0, 0 ) );
+			GetDC()->FillRect( &rect, &brush );
+		}
 	}
 }
 
@@ -393,19 +408,10 @@ void CMyDockDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	m_dwLastActiveTime = GetTickCount();
 	if ( m_bIsDraging ){
-	//	CRect rc;
-	//	GetWindowRect( &rc );
-	//	long x = (long)rc.left + (long)point.x - (long)m_cpLBDown.x;
-	//	long y = (long)rc.top + (long)point.y - (long)m_cpLBDown.y;
-
-	////	SetWindowPos( this, x, y, rc.Width(), rc.Height(), SWP_NOZORDER );
-	//	SetWindowPos( this, x, y, NULL, NULL, SWP_NOZORDER | SWP_NOSIZE );
-
 		PostMessage( WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM( point.x, point.y ) );
 	}
 
 	//CRect rect;
-	//
 	//GetDlgItem( IDC_STN_TITLE_HEAD )->GetWindowRect( &rect );
 	//ScreenToClient( &rect );
 
@@ -464,18 +470,33 @@ void CMyDockDlg::DockedShow( void ){
 		int seq = 0;
 		switch( m_enHidePosi ){
 		case TOP:
+			m_bIsHiding = false;
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_NOCOPYBITS );
-			    Sleep( EVERY_TIME );
+				Sleep( EVERY_TIME );
 			}
 			break;
 		case LEFT:
+			m_bIsHiding = false;
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOCOPYBITS );
-				Sleep( EVERY_TIME );		
+				Sleep( EVERY_TIME );
 			}
 			break;
 		case RIGHT:
+			m_bIsHiding = false;
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_NOCOPYBITS );
 				Sleep( EVERY_TIME );
@@ -500,7 +521,12 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 
 			m_rect.bottom -= m_rect.top;
 			m_rect.top    =  0;
-			
+			m_bIsHiding = true;
+
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else if ( m_rect.left <=0 ){ 
 			m_enHidePosi = LEFT;
 			ModifyStyle( WS_THICKFRAME, NULL );
@@ -508,7 +534,12 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 
 			m_rect.right -= m_rect.left;
 			m_rect.left  = 0;
-			
+			m_bIsHiding = true;
+
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else if ( m_rect.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
 			ModifyStyle( WS_THICKFRAME, NULL );
@@ -516,10 +547,17 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 
 			m_rect.left  = m_screenX - m_rect.Width();
 			m_rect.right = m_screenX;//m_rect.left; //   m_rect.right - m_screenX
-			
+			m_bIsHiding = true;
+
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else {
 			m_enHidePosi = NO;
 		}
+
+
 	}
 }
 
@@ -538,10 +576,10 @@ void CMyDockDlg::OnCancel()
 
 BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 {
-	//if ( pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE ){
-	//	//m_obj.SetFocus();
-	//	return TRUE;
-	//}
+	if ( pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE ){
+		//m_obj.SetFocus();
+		return TRUE;
+	}
 
 	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 		if ( i->pTipCtl ){
@@ -569,6 +607,7 @@ void CMyDockDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	m_bIsDraging = true;
 	m_cpLBDown = point;
 	CDialogEx::OnLButtonDown(nFlags, point);
+	Invalidate( FALSE );
 }
 
 
@@ -594,6 +633,14 @@ void CMyDockDlg::OnRButtonUp(UINT nFlags, CPoint point)
 	CDialogEx::OnRButtonUp(nFlags, point);
 }
 
+
+void CMyDockDlg::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	CDialogEx::OnRButtonDown(nFlags, point);
+	Invalidate( FALSE );
+}
+
+
 void CMyDockDlg::OnRclickmenuSetting()
 {
 	ShellExecute( NULL, "open", m_strSettingFile, NULL, NULL, SW_SHOW );
@@ -603,15 +650,6 @@ void CMyDockDlg::OnRclickmenuSetting()
 void CMyDockDlg::OnRclickmenuClose()
 {
 	EndDialog( 0 );
-}
-
-
-
-BOOL CMyDockDlg::PreCreateWindow(CREATESTRUCT& cs)
-{
-
-//	cs.lpszClass = AfxRegisterWndClass( CS_HREDRAW|CS_VREDRAW ,0 ,(HBRUSH)::GetStockObject(0) ,0);
-	return CDialogEx::PreCreateWindow(cs);
 }
 
 
@@ -653,14 +691,37 @@ void CMyDockDlg::AppTitle( bool bIsShow )
 	Invalidate( FALSE );	// do not erase the background
 }
 
-BOOL CMyDockDlg::OnEraseBkgnd(CDC* pDC)
-{
-//	return TRUE;
-	return CDialogEx::OnEraseBkgnd(pDC);
-}
-
 
 void CMyDockDlg::OnNcCalcSize(BOOL bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp)
 {
 //	CDialogEx::OnNcCalcSize(bCalcValidRects, lpncsp);		// comment here, to make the border = 0
+}
+
+
+void CMyDockDlg::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
+{
+	CDialogEx::OnActivate(nState, pWndOther, bMinimized);
+
+	//switch ( nState ){
+	//case WA_INACTIVE:
+	//	Invalidate( FALSE );
+	//	break;
+	//case WA_ACTIVE:
+	//	Invalidate( FALSE );
+	//	break;
+	//case WA_CLICKACTIVE:
+	//	Invalidate( FALSE );
+	//	break;
+	//default:
+	//	break;
+	//}
+	
+	Invalidate( FALSE );
+}
+
+
+void CMyDockDlg::OnRclickmenuAbout()
+{
+	CAboutDlg aboutDlg;
+	aboutDlg.DoModal();
 }

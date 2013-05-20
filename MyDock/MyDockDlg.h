@@ -40,6 +40,7 @@ typedef struct _app_info {
 //	CStatic* pStnIcon;
 	CTransparentImage* pStnIcon;
 	CStatic* pStnTitle;
+	CFont* pStnFont;
 
 	CString strTitle;
 	CString strLink;
@@ -80,6 +81,8 @@ public:
 protected:
 	HICON m_hIcon;
 
+	OSVERSIONINFO m_osvi;
+
 	CBrush m_brush;
 	CString m_strSettingFile;
 	
@@ -88,6 +91,7 @@ protected:
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
 	CRect m_rect;
+	bool m_bIsHiding;
 	bool m_bIsShowTitle;
 	int m_nTitleMaxWidth;
 
@@ -118,9 +122,10 @@ public:
 	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
-	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	afx_msg void OnRclickmenuShowtitles();
-	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	afx_msg void OnNcCalcSize(BOOL bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
+	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
+	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnRclickmenuAbout();
 };
 
