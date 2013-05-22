@@ -476,7 +476,8 @@ void CMyDockDlg::DockedShow( void ){
 				DwmExtendFrameIntoClientArea( m_hWnd, &m );
 			}
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_NOCOPYBITS );
+				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_SHOWWINDOW );
+				Invalidate( FALSE );
 				Sleep( EVERY_TIME );
 			}
 			break;
@@ -487,7 +488,8 @@ void CMyDockDlg::DockedShow( void ){
 				DwmExtendFrameIntoClientArea( m_hWnd, &m );
 			}
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOCOPYBITS );
+				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_SHOWWINDOW );
+				Invalidate( FALSE );
 				Sleep( EVERY_TIME );
 			}
 			break;
@@ -498,7 +500,8 @@ void CMyDockDlg::DockedShow( void ){
 				DwmExtendFrameIntoClientArea( m_hWnd, &m );
 			}
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_NOCOPYBITS );
+				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW );
+				Invalidate( FALSE );
 				Sleep( EVERY_TIME );
 			}
 			break;
@@ -527,7 +530,7 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 				MARGINS m = { 0 };
 				DwmExtendFrameIntoClientArea( m_hWnd, &m );
 			}
-		} else if ( m_rect.left <=0 ){ 
+		} else if ( m_rect.left <=0 ){
 			m_enHidePosi = LEFT;
 			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, 0, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
@@ -562,7 +565,6 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 }
 
 
-
 void CMyDockDlg::OnOK()
 {
 	//CDialogEx::OnOK();
@@ -593,7 +595,13 @@ void CMyDockDlg::OnBnClickedBnApp( UINT nCtlId )
 {
 	UINT nId = nCtlId - IDC_STN_HEAD;
 	ST_APP_INFO &info = m_vstAppInfo[nId];
-	ShellExecute( NULL, "open", info.strLink, info.strPara, info.strDir, SW_SHOW );
+	Invalidate( FALSE );
+	HINSTANCE h = ShellExecute( NULL, "open", info.strLink, info.strPara, info.strDir, SW_SHOW );
+	//switch ( (long)h ){
+	//case ERROR_FILE_NOT_FOUND:
+	//	
+	//	break;
+	//}
 	DockedHidden( true );
 }
 
@@ -606,8 +614,8 @@ void CMyDockDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	m_bIsDraging = true;
 	m_cpLBDown = point;
-	CDialogEx::OnLButtonDown(nFlags, point);
 	Invalidate( FALSE );
+	CDialogEx::OnLButtonDown(nFlags, point);
 }
 
 
@@ -636,8 +644,8 @@ void CMyDockDlg::OnRButtonUp(UINT nFlags, CPoint point)
 
 void CMyDockDlg::OnRButtonDown(UINT nFlags, CPoint point)
 {
-	CDialogEx::OnRButtonDown(nFlags, point);
 	Invalidate( FALSE );
+	CDialogEx::OnRButtonDown(nFlags, point);
 }
 
 
