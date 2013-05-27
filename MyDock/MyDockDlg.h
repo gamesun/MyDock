@@ -16,18 +16,25 @@
 #define IDC_STN_TITLE_END			(IDC_STN_TITLE1 + MAX_APP_NUM)
 
 
-#define APP_STN_WIDTH				20
-#define APP_STN_HEIGHT				20
+#define APP_STN_WIDTH				16
+#define APP_STN_HEIGHT				16
 
 #define APP_STN_TOP					10
-#define APP_STN_BOTTOM				20
+#define APP_STN_BOTTOM				10
 
-#define APP_STN_SPACING	 			5
-#define APP_STN_W_DISTANCE 			(APP_STN_SPACING + APP_STN_WIDTH)
-#define APP_STN_H_DISTANCE 			(APP_STN_SPACING + APP_STN_HEIGHT)
+#define APP_STN_TITLE_SPACING		5
 
-#define APP_WIDTH					(APP_STN_SPACING + APP_STN_WIDTH + 500 + APP_STN_SPACING)
-#define APP_HEIGHT					( APP_STN_TOP + APP_STN_HEIGHT * 10 + APP_STN_BOTTOM )
+#define APP_STN_W_SPACING	 		5
+#define APP_STN_H_SPACING	 		5
+#define APP_STN_W_DISTANCE 			(APP_STN_W_SPACING + APP_STN_WIDTH)
+#define APP_STN_H_DISTANCE 			(APP_STN_H_SPACING + APP_STN_HEIGHT)
+
+#define APP_WIDTH					(APP_STN_W_SPACING + APP_STN_WIDTH + 500 + APP_STN_W_SPACING)
+#define APP_HEIGHT					(APP_STN_TOP + APP_STN_H_DISTANCE * 10 + APP_STN_BOTTOM)
+
+
+#define SEQ_NUM		20
+#define EVERY_TIME	( 20 / SEQ_NUM )
 
 typedef enum _hide_posi{
 	NO,
@@ -69,7 +76,7 @@ public:
 	void DockedShow( void );
 	void DockedHidden( bool bIsForceHide = false );
 
-	void AppTitle( bool bIsShow );
+	void UpdateUI( bool bIsShowTitle );
 
 	enum { IDD = IDD_MYDOCK_DIALOG };
 
@@ -82,6 +89,8 @@ protected:
 	HICON m_hIcon;
 
 	OSVERSIONINFO m_osvi;
+
+	BOOL m_bIsAeroGlassEn;
 
 	CBrush m_brush;
 	CString m_strSettingFile;
