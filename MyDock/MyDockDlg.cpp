@@ -7,6 +7,9 @@
 #include "MyDockDlg.h"
 #include "afxdialogex.h"
 #include "AboutDlg.h"
+#include "Vsstyle.h"
+#include "Vssym32.h"
+
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -77,7 +80,7 @@ BOOL CMyDockDlg::OnInitDialog()
 	m_osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
 	GetVersionEx( &m_osvi );
 	DwmIsCompositionEnabled( &m_bIsAeroGlassEn );
-	if ( m_osvi.dwMajorVersion >= 6 ){
+	if ( /*m_osvi.dwMajorVersion >= 6*/m_bIsAeroGlassEn ){
 		MARGINS m = { -1 };
 		DwmExtendFrameIntoClientArea( m_hWnd, &m );
     }
@@ -355,6 +358,10 @@ void CMyDockDlg::OnPaint()
 		if ( m_osvi.dwMajorVersion >= 6 ){
 			CRect rect;
 			GetClientRect( &rect );
+
+			MARGINS m = { -1 };
+			DwmExtendFrameIntoClientArea( m_hWnd, &m );
+
 			if ( m_bIsHiding ){
 				CBrush brush( RGB( 220, 220, 220 ) );
 				GetDC()->FillRect( &rect, &brush );
@@ -363,6 +370,11 @@ void CMyDockDlg::OnPaint()
 				GetDC()->FillRect( &rect, &brush );
 			}
 		}
+
+		//CWindowDC dc(this);
+		//RECT rcText = {10, 10, 300, 80};
+		//USES_CONVERSION;
+		//DrawGlowingText( dc.m_hDC, A2W("  test"), rcText );
 	}
 }
 
@@ -483,10 +495,10 @@ void CMyDockDlg::DockedShow( void ){
 		switch( m_enHidePosi ){
 		case TOP:
 			m_bIsHiding = false;
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { -1 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
@@ -505,10 +517,10 @@ void CMyDockDlg::DockedShow( void ){
 			break;
 		case LEFT:
 			m_bIsHiding = false;
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { -1 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, 0, 0, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOMOVE );
 				if ( m_osvi.dwMajorVersion >= 6 ){
@@ -528,10 +540,10 @@ void CMyDockDlg::DockedShow( void ){
 			break;
 		case RIGHT:
 			m_bIsHiding = false;
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { -1 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { -1 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
@@ -570,10 +582,10 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			m_rect.top    =  0;
 			m_bIsHiding = true;
 
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { 0 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else if ( m_rect.left <=0 ){
 			m_enHidePosi = LEFT;
 			ModifyStyle( WS_THICKFRAME, NULL );
@@ -583,10 +595,10 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			m_rect.left  = 0;
 			m_bIsHiding = true;
 
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { 0 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else if ( m_rect.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
 			ModifyStyle( WS_THICKFRAME, NULL );
@@ -596,10 +608,10 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			m_rect.right = m_screenX;//m_rect.left; //   m_rect.right - m_screenX
 			m_bIsHiding = true;
 
-			//if ( m_osvi.dwMajorVersion >= 6 ){
-			//	MARGINS m = { 0 };
-			//	DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			//}
+			if ( m_osvi.dwMajorVersion >= 6 ){
+				MARGINS m = { 0 };
+				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			}
 		} else {
 			m_enHidePosi = NO;
 		}
@@ -782,4 +794,44 @@ void CMyDockDlg::OnRclickmenuAbout()
 {
 	CAboutDlg aboutDlg;
 	aboutDlg.DoModal();
+}
+
+
+void CMyDockDlg::DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, 
+	DWORD dwTextFlags, int iGlowSize )
+{
+	// get the handle of the theme
+	HTHEME hThm = OpenThemeData( /*GetDesktopWindow()*/m_hWnd, L"TextStyle" );
+	
+	// create DIB
+	HDC hMemDC = CreateCompatibleDC( hDC );
+	BITMAPINFO bmpinfo = { 0 };
+	bmpinfo.bmiHeader.biSize = sizeof( bmpinfo.bmiHeader );
+	bmpinfo.bmiHeader.biBitCount = 32;
+	bmpinfo.bmiHeader.biCompression = BI_RGB;
+	bmpinfo.bmiHeader.biPlanes = 1;
+	bmpinfo.bmiHeader.biWidth = rcArea.right - rcArea.left;
+	bmpinfo.bmiHeader.biHeight = -( rcArea.bottom - rcArea.top );
+	HBITMAP hBmp = CreateDIBSection( hMemDC, &bmpinfo, DIB_RGB_COLORS, 0, NULL, 0 );
+	if ( hBmp == NULL ) return;
+	HGDIOBJ hBmpOld = SelectObject( hMemDC, hBmp );
+	
+	// draw options
+	DTTOPTS dttopts = { 0 };
+	dttopts.dwSize = sizeof( DTTOPTS );
+	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED;
+	dttopts.iGlowSize = iGlowSize;	// the size of the glow
+	
+	// draw the text
+	RECT rc = { 0, 0, rcArea.right - rcArea.left, rcArea.bottom - rcArea.top };
+	HRESULT hr = DrawThemeTextEx( hThm, hMemDC, TEXT_LABEL, 0, szText, -1, dwTextFlags , &rc, &dttopts );
+	if ( FAILED( hr ) ) return;
+	BitBlt( hDC, rcArea.left, rcArea.top, rcArea.right - rcArea.left, 
+		rcArea.bottom - rcArea.top, hMemDC, 0, 0, SRCCOPY | CAPTUREBLT );
+	
+	//Clear
+	SelectObject( hMemDC, hBmpOld );
+	DeleteObject( hBmp );
+	DeleteDC( hMemDC );
+	CloseThemeData( hThm );
 }

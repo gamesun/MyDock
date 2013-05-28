@@ -78,6 +78,8 @@ public:
 
 	void UpdateUI( bool bIsShowTitle );
 
+	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 10 );
+
 	enum { IDD = IDD_MYDOCK_DIALOG };
 
 	protected:
