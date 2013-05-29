@@ -489,9 +489,16 @@ void CMyDockDlg::OnTimer(UINT_PTR nIDEvent)
 	switch ( nIDEvent ){
 	case TIMER_EVENT_ID_100MS:
 		if ( GetTickCount() - m_dwLastActiveTime < HOLD_TIME_BEFORE_HIDE ){
-			DockedShow();
+			//DockedShow();
+			SetTimer( HOLD_TIME_BEFORE_SHOW_ID, HOLD_TIME_BEFORE_SHOW, NULL );
 		} else {
 			DockedHidden();
+		}
+		break;
+	case HOLD_TIME_BEFORE_SHOW_ID:
+		KillTimer( HOLD_TIME_BEFORE_SHOW_ID );
+		if ( IsMouseInWindow() ){
+			DockedShow();
 		}
 		break;
 	}
@@ -538,6 +545,7 @@ void CMyDockDlg::DockedShow( void ){
 				MARGINS m = { -1 };
 				DwmExtendFrameIntoClientArea( m_hWnd, &m );
 			}
+
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, 0, 0, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOMOVE );
 				if ( m_osvi.dwMajorVersion >= 6 ){

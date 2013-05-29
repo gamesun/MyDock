@@ -34,9 +34,10 @@
 
 
 #define HOLD_TIME_BEFORE_HIDE		300		// ms
-#define HOLD_TIME_BEFORE_SHOW		1000	// ms
+#define HOLD_TIME_BEFORE_SHOW		200	// ms
+#define HOLD_TIME_BEFORE_SHOW_ID	1
 
-#define SEQ_NUM						20
+#define SEQ_NUM						10
 #define EVERY_TIME					( 20 / SEQ_NUM )
 
 typedef enum _hide_posi{
@@ -105,6 +106,8 @@ protected:
 	int m_screenY;
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
+	DWORD m_dwTriggerTime;
+	bool m_bIsDelaying;
 	CRect m_rect;
 	bool m_bIsHiding;
 	bool m_bIsShowTitle;
