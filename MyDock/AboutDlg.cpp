@@ -1,4 +1,4 @@
-// AboutDlg.cpp : 实现文件
+// AboutDlg.cpp
 //
 
 #include "stdafx.h"
@@ -7,7 +7,6 @@
 #include "afxdialogex.h"
 
 
-// CAboutDlg 对话框
 
 IMPLEMENT_DYNAMIC(CAboutDlg, CDialogEx)
 
@@ -24,6 +23,7 @@ CAboutDlg::~CAboutDlg()
 void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_STN_ICON, m_stnIcon);
 }
 
 
@@ -31,4 +31,16 @@ BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 END_MESSAGE_MAP()
 
 
-// CAboutDlg 消息处理程序
+
+BOOL CAboutDlg::OnInitDialog()
+{
+	CDialogEx::OnInitDialog();
+
+	m_stnIcon.ModifyStyle( NULL, SS_ICON | SS_CENTER );
+	HICON hIcon = LoadIcon( AfxGetApp()->m_hInstance, MAKEINTRESOURCE( IDR_MAINFRAME ) );
+	m_stnIcon.SetIcon( hIcon );
+
+
+	return TRUE;  // return TRUE unless you set the focus to a control
+
+}
