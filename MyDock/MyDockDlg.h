@@ -22,7 +22,7 @@
 #define APP_STN_TOP					10
 #define APP_STN_BOTTOM				10
 
-#define APP_STN_TITLE_SPACING		5
+#define APP_STN_TITLE_SPACING		0
 
 #define APP_STN_W_SPACING	 		5
 #define APP_STN_H_SPACING	 		5
@@ -33,8 +33,11 @@
 #define APP_HEIGHT					(APP_STN_TOP + APP_STN_H_DISTANCE * 10 + APP_STN_BOTTOM)
 
 
-#define SEQ_NUM		20
-#define EVERY_TIME	( 20 / SEQ_NUM )
+#define HOLD_TIME_BEFORE_HIDE		300		// ms
+#define HOLD_TIME_BEFORE_SHOW		1000	// ms
+
+#define SEQ_NUM						20
+#define EVERY_TIME					( 20 / SEQ_NUM )
 
 typedef enum _hide_posi{
 	NO,
@@ -47,6 +50,7 @@ typedef struct _app_info {
 //	CStatic* pStnIcon;
 	CTransparentImage* pStnIcon;
 	CStatic* pStnTitle;
+	CRect rectTitle;
 	CFont* pStnFont;
 
 	CString strTitle;
@@ -78,7 +82,7 @@ public:
 
 	void UpdateUI( bool bIsShowTitle );
 
-	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 10 );
+	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 5 );
 
 	enum { IDD = IDD_MYDOCK_DIALOG };
 

@@ -75,10 +75,14 @@ BOOL CMyDockDlg::OnInitDialog()
 
 	ModifyStyle( NULL, WS_THICKFRAME );
 
-	OSVERSIONINFO m_osvi;
 	ZeroMemory( &m_osvi, sizeof( OSVERSIONINFO ) );
 	m_osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
-	GetVersionEx( &m_osvi );
+	BOOL bRet = GetVersionEx( &m_osvi );
+	if ( FALSE == bRet ){
+		DWORD e = GetLastError();
+		TRACE( "Error:%d", e );
+		ASSERT( 0 );
+	}
 	DwmIsCompositionEnabled( &m_bIsAeroGlassEn );
 	if ( /*m_osvi.dwMajorVersion >= 6*/m_bIsAeroGlassEn ){
 		MARGINS m = { -1 };
@@ -194,6 +198,7 @@ void CMyDockDlg::LoadSetting( void ){
 
 		GetPrivateProfileString( strSection, strKey[6], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
+		stAppInfo.strTitle = " " + stAppInfo.strTitle;
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -250,14 +255,15 @@ void CMyDockDlg::LoadSetting( void ){
 				if ( ! i->strTip.IsEmpty() ){
 					i->pTipCtl = new CToolTipCtrl;
 					i->pTipCtl->Create( this );
-					i->pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ),i->strTip );
+					i->pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), i->strTip );
 				}
 			}
 		}
 
 		if ( ! i->strTitle.IsEmpty() ){
 			i->pStnTitle = new CStatic;
-			i->pStnTitle->Create( i->strTitle, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, CRect( r + APP_STN_TITLE_SPACING, t + 2, r + 100, b ), this, IDC_STN_TITLE_HEAD + nIdx );
+			i->rectTitle.SetRect( r + APP_STN_TITLE_SPACING, t + 1, r + 100, b );
+			i->pStnTitle->Create( ""/*i->strTitle*/, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, i->rectTitle, this, IDC_STN_TITLE_HEAD + nIdx );
 
 			i->pStnFont = new CFont;
 			i->pStnFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
@@ -267,27 +273,33 @@ void CMyDockDlg::LoadSetting( void ){
 
 			i->pStnTitle->SetFont( i->pStnFont );
 
-			CRect rect;
+		//	CRect rect;
 			CSize size( 0, 0 );
-			i->pStnTitle->GetWindowRect( rect );
-			ScreenToClient( &rect );
+		//	i->pStnTitle->GetWindowRect( rect );
+		//	ScreenToClient( &rect );
 			CClientDC dc( i->pStnTitle );
 			CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
 			//CString str;
 			//i->pStnTitle->GetWindowText( str );
 			//if( ::GetTextExtentPoint32( (HDC)dc, str, str.GetLength(), &size ) ){
 			if( ::GetTextExtentPoint32( (HDC)dc, i->strTitle, i->strTitle.GetLength(), &size ) ){
-				rect.right = rect.left + size.cx + 5; // size.cx has a little small sometimes.
-				rect.bottom = rect.top + size.cy;
-				m_nTitleMaxWidth = ( m_nTitleMaxWidth < rect.Width() ) ? rect.Width() : m_nTitleMaxWidth;
+			//	rect.right = rect.left + size.cx + 15; // size.cx has a little small sometimes.
+			//	rect.bottom = rect.top + size.cy;
+			//	m_nTitleMaxWidth = ( m_nTitleMaxWidth < rect.Width() ) ? rect.Width() : m_nTitleMaxWidth;
+				i->rectTitle.right = i->rectTitle.left + size.cx + 5;
+				i->rectTitle.bottom = i->rectTitle.top + size.cy;
+				m_nTitleMaxWidth = ( m_nTitleMaxWidth < i->rectTitle.Width() ) ? i->rectTitle.Width() : m_nTitleMaxWidth;
 			} else {
 				TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
 			//	i->pStnTitle->SetWindowText( "GetTextExtentPoint32 fail to get the size of text!" );
 			}
-			i->pStnTitle->MoveWindow( rect );
+			//i->pStnTitle->MoveWindow( rect );
+			i->pStnTitle->MoveWindow( i->rectTitle );
 			dc.SelectObject( pOldFont );
 
-
+			i->rectTitle.top -= 3;
+			i->rectTitle.bottom += 3;
+			i->rectTitle.right += 10;
 			//CFont* pFont = i->pStnTitle->GetFont();
 			//LOGFONT LogFont;
 			//pFont->GetLogFont(&LogFont);
@@ -371,6 +383,11 @@ void CMyDockDlg::OnPaint()
 			}
 		}
 
+		CWindowDC dc(this);
+		USES_CONVERSION;
+		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+			DrawGlowingText( dc.m_hDC, A2W( i->strTitle ), i->rectTitle );
+		}
 		//CWindowDC dc(this);
 		//RECT rcText = {10, 10, 300, 80};
 		//USES_CONVERSION;
@@ -471,7 +488,7 @@ void CMyDockDlg::OnTimer(UINT_PTR nIDEvent)
 {
 	switch ( nIDEvent ){
 	case TIMER_EVENT_ID_100MS:
-		if ( GetTickCount() - m_dwLastActiveTime < 300 ){
+		if ( GetTickCount() - m_dwLastActiveTime < HOLD_TIME_BEFORE_HIDE ){
 			DockedShow();
 		} else {
 			DockedHidden();
@@ -739,7 +756,7 @@ void CMyDockDlg::UpdateUI( bool bIsShowTitle )
 			}
 		}
 
-		m_rect.right = m_rect.left + (APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_TITLE_SPACING + m_nTitleMaxWidth + APP_STN_W_SPACING);
+		m_rect.right = m_rect.left + ( APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_TITLE_SPACING + m_nTitleMaxWidth + 10 + APP_STN_W_SPACING );
 		m_rect.bottom = m_rect.top + ( APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM );
 
 		SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
