@@ -84,9 +84,11 @@ BOOL CMyDockDlg::OnInitDialog()
 		ASSERT( 0 );
 	}
 	DwmIsCompositionEnabled( &m_bIsAeroGlassEn );
-	if ( /*m_osvi.dwMajorVersion >= 6*/m_bIsAeroGlassEn ){
-		MARGINS m = { -1 };
-		DwmExtendFrameIntoClientArea( m_hWnd, &m );
+	if ( m_osvi.dwMajorVersion >= 6 ){
+		memset( &m_marginsAll, -1, sizeof(MARGINS) );
+		memset( &m_marginsNone, 0, sizeof(MARGINS) );
+		
+		DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsAll );
     }
 
 	//DWM_BLURBEHIND bb = {0};
@@ -106,7 +108,8 @@ BOOL CMyDockDlg::OnInitDialog()
 	SetTimer( TIMER_EVENT_ID_100MS, 100, NULL );
 
 	m_bIsDraging = false;
-
+	m_nAppWidthTitle = 0;
+	m_sizeApp.SetSize( APP_WIDTH, APP_HEIGHT );
 	OleInitialize( NULL );
 
 	LoadSetting();
@@ -215,7 +218,7 @@ void CMyDockDlg::LoadSetting( void ){
 	UINT nIcoId;
 	int nIdx;
 	
-	m_nTitleMaxWidth = 0;
+
 //	HICON IconLarge;
 	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 		UINT nRet;
@@ -285,10 +288,10 @@ void CMyDockDlg::LoadSetting( void ){
 			if( ::GetTextExtentPoint32( (HDC)dc, i->strTitle, i->strTitle.GetLength(), &size ) ){
 			//	rect.right = rect.left + size.cx + 15; // size.cx has a little small sometimes.
 			//	rect.bottom = rect.top + size.cy;
-			//	m_nTitleMaxWidth = ( m_nTitleMaxWidth < rect.Width() ) ? rect.Width() : m_nTitleMaxWidth;
+			//	m_nAppWidthTitle = ( m_nAppWidthTitle < rect.Width() ) ? rect.Width() : m_nAppWidthTitle;
 				i->rectTitle.right = i->rectTitle.left + size.cx + 5;
 				i->rectTitle.bottom = i->rectTitle.top + size.cy;
-				m_nTitleMaxWidth = ( m_nTitleMaxWidth < i->rectTitle.Width() ) ? i->rectTitle.Width() : m_nTitleMaxWidth;
+				m_nAppWidthTitle = ( m_nAppWidthTitle < i->rectTitle.Width() ) ? i->rectTitle.Width() : m_nAppWidthTitle;
 			} else {
 				TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
 			//	i->pStnTitle->SetWindowText( "GetTextExtentPoint32 fail to get the size of text!" );
@@ -313,6 +316,10 @@ void CMyDockDlg::LoadSetting( void ){
 	}
 
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
+
+	m_nAppWidthTitle += APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_TITLE_SPACING + 10 + APP_STN_W_SPACING;
+
+	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	UpdateUI( m_bIsShowTitle );
 
@@ -371,8 +378,7 @@ void CMyDockDlg::OnPaint()
 			CRect rect;
 			GetClientRect( &rect );
 
-			MARGINS m = { -1 };
-			DwmExtendFrameIntoClientArea( m_hWnd, &m );
+			DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsAll );
 
 			if ( m_bIsHiding ){
 				CBrush brush( RGB( 220, 220, 220 ) );
@@ -441,7 +447,7 @@ HBRUSH CMyDockDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 BOOL CMyDockDlg::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
 {
-	SetCursor( m_hCursor );
+//	SetCursor( m_hCursor );
 	return CDialogEx::OnSetCursor(pWnd, nHitTest, message);
 }
 
@@ -514,50 +520,32 @@ void CMyDockDlg::DockedShow( void ){
 	if( m_enHidePosi != NO && IsMouseInWindow() ){
 
 		ModifyStyle( NULL, WS_THICKFRAME );	// Aero effect need the WS_THICKFRAME style.
-		Invalidate(  );
 		int seq = 0;
 		switch( m_enHidePosi ){
 		case TOP:
 			m_bIsHiding = false;
-			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { -1 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
-					if ( m_bIsHiding ){
-						CBrush brush( RGB( 220, 220, 220 ) );
-						GetDC()->FillRect( &rect, &brush );
-					} else {
-						CBrush brush( RGB( 0, 0, 0 ) );
-						GetDC()->FillRect( &rect, &brush );
-					}
+
+					CBrush brush( RGB( 0, 0, 0 ) );
+					GetDC()->FillRect( &rect, &brush );
 				}
 				Sleep( EVERY_TIME );
 			}
 			break;
 		case LEFT:
 			m_bIsHiding = false;
-			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { -1 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			}
-
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, 0, 0, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOMOVE );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
-					if ( m_bIsHiding ){
-						CBrush brush( RGB( 220, 220, 220 ) );
-						GetDC()->FillRect( &rect, &brush );
-					} else {
-						CBrush brush( RGB( 0, 0, 0 ) );
-						GetDC()->FillRect( &rect, &brush );
-					}
+
+					CBrush brush( RGB( 0, 0, 0 ) );
+					GetDC()->FillRect( &rect, &brush );
 				}
 
 				Sleep( EVERY_TIME );
@@ -565,22 +553,14 @@ void CMyDockDlg::DockedShow( void ){
 			break;
 		case RIGHT:
 			m_bIsHiding = false;
-			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { -1 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
-			}
 			while ( ++seq <= SEQ_NUM ){
 				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
-					if ( m_bIsHiding ){
-						CBrush brush( RGB( 220, 220, 220 ) );
-						GetDC()->FillRect( &rect, &brush );
-					} else {
-						CBrush brush( RGB( 0, 0, 0 ) );
-						GetDC()->FillRect( &rect, &brush );
-					}
+
+					CBrush brush( RGB( 0, 0, 0 ) );
+					GetDC()->FillRect( &rect, &brush );
 				}
 				Sleep( EVERY_TIME );
 			}
@@ -608,21 +588,20 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { 0 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+				DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsNone );
 			}
 		} else if ( m_rect.left <=0 ){
 			m_enHidePosi = LEFT;
 			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, 0, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
 
-			m_rect.right -= m_rect.left;
+		//	m_rect.right -= m_rect.left;
+			m_rect.right = m_sizeApp.cx;
 			m_rect.left  = 0;
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { 0 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+				DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsNone );
 			}
 		} else if ( m_rect.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
@@ -634,14 +613,11 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
-				MARGINS m = { 0 };
-				DwmExtendFrameIntoClientArea( m_hWnd, &m );
+				DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsNone );
 			}
 		} else {
 			m_enHidePosi = NO;
 		}
-
-
 	}
 }
 
@@ -700,7 +676,6 @@ void CMyDockDlg::OnBnClickedBnAppTitle( UINT nCtlId )
 void CMyDockDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	m_bIsDraging = true;
-	m_cpLBDown = point;
 	Invalidate( FALSE );
 	CDialogEx::OnLButtonDown(nFlags, point);
 }
@@ -764,11 +739,7 @@ void CMyDockDlg::UpdateUI( bool bIsShowTitle )
 			}
 		}
 
-		m_rect.right = m_rect.left + ( APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_TITLE_SPACING + m_nTitleMaxWidth + 10 + APP_STN_W_SPACING );
-		m_rect.bottom = m_rect.top + ( APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM );
-
-		SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
-		m_enHidePosi = NO;
+		m_sizeApp.cx = m_nAppWidthTitle;
 	} else {
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			if ( i->pStnTitle ){
@@ -776,13 +747,17 @@ void CMyDockDlg::UpdateUI( bool bIsShowTitle )
 			}
 		}
 
-		m_rect.right = m_rect.left + (APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_W_SPACING);
-		m_rect.bottom = m_rect.top + ( APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM );
-
-		SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
-		m_enHidePosi = NO;
+		m_sizeApp.cx = APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_W_SPACING;
 	}
-	
+
+	m_rect.right  = m_rect.left + m_sizeApp.cx;
+	m_rect.bottom = m_rect.top  + m_sizeApp.cy;
+
+	ModifyStyle( NULL, WS_THICKFRAME );
+	SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
+	m_bIsHiding  = false;
+	m_enHidePosi = NO;
+
 	Invalidate( FALSE );	// do not erase the background
 }
 

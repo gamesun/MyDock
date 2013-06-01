@@ -34,7 +34,7 @@
 
 
 #define HOLD_TIME_BEFORE_HIDE		300		// ms
-#define HOLD_TIME_BEFORE_SHOW		200	// ms
+#define HOLD_TIME_BEFORE_SHOW		200		// ms
 #define HOLD_TIME_BEFORE_SHOW_ID	1
 
 #define SEQ_NUM						10
@@ -98,27 +98,28 @@ protected:
 	OSVERSIONINFO m_osvi;
 
 	BOOL m_bIsAeroGlassEn;
+	MARGINS m_marginsAll;
+	MARGINS m_marginsNone;
 
-	CBrush m_brush;
+//	CBrush m_brush;
 	CString m_strSettingFile;
 	
 	int m_screenX;
 	int m_screenY;
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
-	DWORD m_dwTriggerTime;
-	bool m_bIsDelaying;
+
 	CRect m_rect;
 	bool m_bIsHiding;
 	bool m_bIsShowTitle;
-	int m_nTitleMaxWidth;
+	CSize m_sizeApp;
+	LONG m_nAppWidthTitle;
 
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 
 	bool m_bIsDraging;
-	CPoint m_cpLBDown;
 
-	HCURSOR m_hCursor;
+//	HCURSOR m_hCursor;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
