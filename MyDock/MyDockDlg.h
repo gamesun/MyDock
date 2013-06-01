@@ -5,7 +5,9 @@
 #pragma once
 #include "TransparentImage.h"
 
-#define TIMER_EVENT_ID_100MS		100
+
+#define TIMER_EVENT_ID_100MS		1
+#define HOLD_TIME_BEFORE_SHOW_ID	2
 
 #define MAX_APP_NUM					128
 #define	IDC_STN_HEAD				IDC_STN_APP1
@@ -15,10 +17,6 @@
 #define	IDC_STN_TITLE_HEAD			IDC_STN_TITLE1
 #define IDC_STN_TITLE_END			(IDC_STN_TITLE1 + MAX_APP_NUM)
 
-
-#define APP_STN_WIDTH				16
-#define APP_STN_HEIGHT				16
-
 #define APP_STN_TOP					10
 #define APP_STN_BOTTOM				10
 
@@ -26,16 +24,13 @@
 
 #define APP_STN_W_SPACING	 		5
 #define APP_STN_H_SPACING	 		5
-#define APP_STN_W_DISTANCE 			(APP_STN_W_SPACING + APP_STN_WIDTH)
-#define APP_STN_H_DISTANCE 			(APP_STN_H_SPACING + APP_STN_HEIGHT)
+#define APP_STN_W_DISTANCE 			(APP_STN_W_SPACING + m_sizeIcon.cx)
+#define APP_STN_H_DISTANCE 			(APP_STN_H_SPACING + m_sizeIcon.cy)
 
-#define APP_WIDTH					(APP_STN_W_SPACING + APP_STN_WIDTH + 500 + APP_STN_W_SPACING)
+#define APP_WIDTH					(APP_STN_W_SPACING + m_sizeIcon.cx + 500 + APP_STN_W_SPACING)
 #define APP_HEIGHT					(APP_STN_TOP + APP_STN_H_DISTANCE * 10 + APP_STN_BOTTOM)
 
 
-#define HOLD_TIME_BEFORE_HIDE		300		// ms
-#define HOLD_TIME_BEFORE_SHOW		200		// ms
-#define HOLD_TIME_BEFORE_SHOW_ID	1
 
 #define SEQ_NUM						10
 #define EVERY_TIME					( 20 / SEQ_NUM )
@@ -112,8 +107,11 @@ protected:
 	CRect m_rect;
 	bool m_bIsHiding;
 	bool m_bIsShowTitle;
+	CSize m_sizeIcon;
 	CSize m_sizeApp;
 	LONG m_nAppWidthTitle;
+	DWORD m_dwHoldTimeBeforeShow;
+	DWORD m_dwHoldTimeBeforeHide;
 
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 

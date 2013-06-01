@@ -21,7 +21,16 @@
 
 //using namespace std;
 
-
+const int c_nIconSize[] = {
+	16,		// 0
+	24,		// 1
+	32,		// 2
+	48,		// 3
+	64,		// 4
+	72,		// 5
+	96,		// 6
+	128		// 7
+};
 
 
 CMyDockDlg::CMyDockDlg(CWnd* pParent /*=NULL*/)
@@ -110,6 +119,10 @@ BOOL CMyDockDlg::OnInitDialog()
 	m_bIsDraging = false;
 	m_nAppWidthTitle = 0;
 	m_sizeApp.SetSize( APP_WIDTH, APP_HEIGHT );
+	m_sizeIcon.SetSize( 16, 16 );
+	m_dwHoldTimeBeforeShow = 0;
+	m_dwHoldTimeBeforeHide = 0;
+
 	OleInitialize( NULL );
 
 	LoadSetting();
@@ -166,6 +179,21 @@ void CMyDockDlg::LoadSetting( void ){
 	strBuff.ReleaseBuffer();
 	nScreenY = strtol( strBuff, NULL, 10 );
 
+	GetPrivateProfileString( "options", "icon size", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	int nTmp = strtol( strBuff, NULL, 10 );
+	if ( 0 <= nTmp && nTmp < sizeof( c_nIconSize ) / sizeof( c_nIconSize[0] ) ){
+		m_sizeIcon.SetSize( c_nIconSize[nTmp], c_nIconSize[nTmp] );
+	}
+
+	GetPrivateProfileString( "options", "hold time before show", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	m_dwHoldTimeBeforeShow = strtol( strBuff, NULL, 10 );
+
+	GetPrivateProfileString( "options", "hold time before hide", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	m_dwHoldTimeBeforeHide = strtol( strBuff, NULL, 10 );
+
 	GetPrivateProfileString( "options", "show titles", "no", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	strBuff.ReleaseBuffer();
 	m_bIsShowTitle = ( "yes" == strBuff ) ? true : false;
@@ -210,8 +238,8 @@ void CMyDockDlg::LoadSetting( void ){
 	}
 
 //	const int s  = APP_STN_W_SPACING;
-	const int w  = APP_STN_WIDTH;
-	const int h  = APP_STN_HEIGHT;
+	const int w  = m_sizeIcon.cx;
+	const int h  = m_sizeIcon.cy;
 	const int wd = APP_STN_W_DISTANCE;
 	const int hd = APP_STN_H_DISTANCE;
 	int l,t,r,b;
@@ -248,13 +276,14 @@ void CMyDockDlg::LoadSetting( void ){
 			l = APP_STN_W_SPACING;
 			t = APP_STN_TOP + nIdx * hd;
 			r = APP_STN_W_DISTANCE;
-			b = t + APP_STN_HEIGHT;
+			b = t + m_sizeIcon.cy;
 			if ( NULL == i->hIcon ){
 				ASSERT(0);
 			} else {
 				i->pStnIcon = new CTransparentImage;
 				i->pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
-				i->pStnIcon->SetIcon( i->hIcon, 16, 16 );
+			//	i->pStnIcon->SetIcon( i->hIcon, 16, 16 );
+				i->pStnIcon->SetIcon( i->hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
 				if ( ! i->strTip.IsEmpty() ){
 					i->pTipCtl = new CToolTipCtrl;
 					i->pTipCtl->Create( this );
@@ -317,7 +346,7 @@ void CMyDockDlg::LoadSetting( void ){
 
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
 
-	m_nAppWidthTitle += APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_TITLE_SPACING + 10 + APP_STN_W_SPACING;
+	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_TITLE_SPACING + 10 + APP_STN_W_SPACING;
 
 	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
@@ -494,9 +523,9 @@ void CMyDockDlg::OnTimer(UINT_PTR nIDEvent)
 {
 	switch ( nIDEvent ){
 	case TIMER_EVENT_ID_100MS:
-		if ( GetTickCount() - m_dwLastActiveTime < HOLD_TIME_BEFORE_HIDE ){
+		if ( GetTickCount() - m_dwLastActiveTime < m_dwHoldTimeBeforeHide ){
 			//DockedShow();
-			SetTimer( HOLD_TIME_BEFORE_SHOW_ID, HOLD_TIME_BEFORE_SHOW, NULL );
+			SetTimer( HOLD_TIME_BEFORE_SHOW_ID, m_dwHoldTimeBeforeShow, NULL );
 		} else {
 			DockedHidden();
 		}
@@ -583,7 +612,8 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 			ModifyStyle( WS_THICKFRAME, NULL );
 			this->SetWindowPos( NULL, m_rect.left, 0, m_rect.Width(), 2, SWP_NOCOPYBITS );
 
-			m_rect.bottom -= m_rect.top;
+		//	m_rect.bottom -= m_rect.top;
+			m_rect.bottom = m_sizeApp.cy;
 			m_rect.top    =  0;
 			m_bIsHiding = true;
 
@@ -747,7 +777,7 @@ void CMyDockDlg::UpdateUI( bool bIsShowTitle )
 			}
 		}
 
-		m_sizeApp.cx = APP_STN_W_SPACING + APP_STN_WIDTH + APP_STN_W_SPACING;
+		m_sizeApp.cx = APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_W_SPACING;
 	}
 
 	m_rect.right  = m_rect.left + m_sizeApp.cx;
