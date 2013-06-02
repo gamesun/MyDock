@@ -70,13 +70,16 @@ public:
 	CMyDockDlg(CWnd* pParent = NULL);	// 
 	~CMyDockDlg();
 
+	void GetLnkInfo( const CString& strDest );
+	void CreateAppItem( int nIdx );
+	void SaveAppSetting( UINT nIdx );
 	void LoadSetting( void );
 	void SaveSetting( void );
 	BOOL IsMouseInWindow( void );
 	void DockedShow( void );
 	void DockedHidden( bool bIsForceHide = false );
 
-	void UpdateUI( bool bIsShowTitle );
+	void UpdateUI( void );
 
 	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 6 );
 
@@ -146,5 +149,6 @@ public:
 	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnRclickmenuAbout();
+	afx_msg void OnDropFiles(HDROP hDropInfo);
 };
 

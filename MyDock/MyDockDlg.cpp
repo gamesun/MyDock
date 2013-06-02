@@ -9,7 +9,7 @@
 #include "AboutDlg.h"
 #include "Vsstyle.h"
 #include "Vssym32.h"
-
+#include "LnkParser.h"
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -64,6 +64,7 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_WM_NCCALCSIZE()
 	ON_WM_ACTIVATE()
 	ON_COMMAND(ID_RCLICKMENU_ABOUT, &CMyDockDlg::OnRclickmenuAbout)
+	ON_WM_DROPFILES()
 END_MESSAGE_MAP()
 
 
@@ -98,6 +99,7 @@ BOOL CMyDockDlg::OnInitDialog()
 		memset( &m_marginsNone, 0, sizeof(MARGINS) );
 		
 		DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsAll );
+		SetBackgroundColor( RGB (200, 201, 202) );
     }
 
 	//DWM_BLURBEHIND bb = {0};
@@ -161,7 +163,7 @@ CMyDockDlg::~CMyDockDlg(){
 }
 
 void CMyDockDlg::LoadSetting( void ){
-	CString strKey[7] = { "link", "para", "workdir", "tip", "icon", "icoid", "title" };
+	CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
 	CString strBuff;
 	CString strSection;
 	int nScreenX, nScreenY;
@@ -209,9 +211,6 @@ void CMyDockDlg::LoadSetting( void ){
 
 	GetPrivateProfileString( "options", "font name", "SimSun", m_strFontName.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	m_strFontName.ReleaseBuffer();
-	//if ( m_strFontName.IsEmpty() ){
-	//	m_strFontName = "SimSun";
-	//}
 
 	GetPrivateProfileString( "options", "font size", "12", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	strBuff.ReleaseBuffer();
@@ -229,34 +228,35 @@ void CMyDockDlg::LoadSetting( void ){
 
 		strSection.Format( "App%d", i + 1  );
 
-		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		stAppInfo.strLink.ReleaseBuffer();
-
-		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		stAppInfo.strPara.ReleaseBuffer();
-
-		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		stAppInfo.strDir.ReleaseBuffer();
-
-		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		stAppInfo.strTip.ReleaseBuffer();
-
-		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		stAppInfo.strIcon.ReleaseBuffer();
-
-		GetPrivateProfileString( strSection, strKey[5], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-		strBuff.ReleaseBuffer();
-		stAppInfo.nIcoId = strtol( strBuff, NULL, 10 );
-
-		GetPrivateProfileString( strSection, strKey[6], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
 		stAppInfo.strTitle = " " + stAppInfo.strTitle;
 
+		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strLink.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strPara.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strDir.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strTip.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[5], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.strIcon.ReleaseBuffer();
+
+		GetPrivateProfileString( strSection, strKey[6], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		strBuff.ReleaseBuffer();
+		stAppInfo.nIcoId = strtol( strBuff, NULL, 10 );
+
 		int n = MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), NULL, 0 );
-		wchar_t* pWideChar = (wchar_t*)calloc( n + 1, sizeof(wchar_t) );
+		WCHAR* pWideChar = ( WCHAR* )calloc( n + 1, sizeof( WCHAR ) );	// calloc will initialize its all bits to zero.
 		MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), pWideChar, n );
 		stAppInfo.strTitle = CString( pWideChar );
 
+		delete[] pWideChar;
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -264,124 +264,113 @@ void CMyDockDlg::LoadSetting( void ){
 		}
 	}
 
-//	const int s  = APP_STN_W_SPACING;
-	const int w  = m_sizeIcon.cx;
-	const int h  = m_sizeIcon.cy;
-	const int wd = APP_STN_W_DISTANCE;
-	const int hd = APP_STN_H_DISTANCE;
-	int l,t,r,b;
-	UINT nIcoId;
-	int nIdx;
-	
-
-//	HICON IconLarge;
-	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
-		UINT nRet;
-		nIdx = distance( m_vstAppInfo.begin(), i );
-		if ( ! i->strLink.IsEmpty() ){
-			//GetEnvironmentVariable();
-			
-			if ( i->strIcon.IsEmpty() ){
-				if ( "\\" == i->strLink.Right( 1 ) ){
-					nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &(i->hIcon), 1 );		// opened folder icon
-				} else {
-					UINT IconNum = ExtractIconEx( i->strLink, -1, NULL, NULL, 0 );
-					nRet = ExtractIconEx( i->strLink, 0, NULL, &(i->hIcon), 1 );
-				}
-			} else {
-				UINT IconNum = ExtractIconEx( i->strIcon, -1, NULL, NULL, 0 );
-				nIcoId = ( i->nIcoId < IconNum ) ? i->nIcoId : 0;
-				nRet = ExtractIconEx( i->strIcon, nIcoId, NULL, &(i->hIcon), 1 );
-			}
-			if ( -1 == (INT)nRet ){
-				nRet = ExtractIconEx( "imageres.dll", 11, NULL, &(i->hIcon), 1 );		// unknown executable file's icon.
-				if ( nRet == -1 ){
-					ASSERT(0);
-				}
-			}
-
-			l = APP_STN_W_SPACING;
-			t = APP_STN_TOP + nIdx * hd;
-			r = APP_STN_W_DISTANCE;
-			b = t + m_sizeIcon.cy;
-			if ( NULL == i->hIcon ){
-				ASSERT(0);
-			} else {
-				i->pStnIcon = new CTransparentImage;
-				i->pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
-			//	i->pStnIcon->SetIcon( i->hIcon, 16, 16 );
-				i->pStnIcon->SetIcon( i->hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
-				if ( ! i->strTip.IsEmpty() ){
-					i->pTipCtl = new CToolTipCtrl;
-					i->pTipCtl->Create( this );
-					i->pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), i->strTip );
-				}
-			}
-		}
-
-		if ( ! i->strTitle.IsEmpty() ){
-			i->pStnTitle = new CStatic;
-			i->rectTitle.SetRect( r + APP_STN_TITLE_SPACING, t + 1, r + 100, b );
-			i->pStnTitle->Create( ""/*i->strTitle*/, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, i->rectTitle, this, IDC_STN_TITLE_HEAD + nIdx );
-
-			i->pStnFont = new CFont;
-			i->pStnFont->CreateFont( m_nFontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
-				ANSI_CHARSET, OUT_DEFAULT_PRECIS,
-				CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-				DEFAULT_PITCH&FF_SWISS, /*"SimSun"*/m_strFontName );
-
-			i->pStnTitle->SetFont( i->pStnFont );
-
-		//	CRect rect;
-			CSize size( 0, 0 );
-		//	i->pStnTitle->GetWindowRect( rect );
-		//	ScreenToClient( &rect );
-			CClientDC dc( i->pStnTitle );
-			dc.SelectObject( i->pStnFont );
-		//	CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
-			//CString str;
-			//i->pStnTitle->GetWindowText( str );
-			//if( ::GetTextExtentPoint32( (HDC)dc, str, str.GetLength(), &size ) ){
-			if( ::GetTextExtentPoint32( (HDC)dc, i->strTitle, i->strTitle.GetLength(), &size ) ){
-			//	rect.right = rect.left + size.cx + 15; // size.cx has a little small sometimes.
-			//	rect.bottom = rect.top + size.cy;
-			//	m_nAppWidthTitle = ( m_nAppWidthTitle < rect.Width() ) ? rect.Width() : m_nAppWidthTitle;
-				i->rectTitle.right = i->rectTitle.left + size.cx;
-				i->rectTitle.bottom = i->rectTitle.top + size.cy;
-				m_nAppWidthTitle = ( m_nAppWidthTitle < i->rectTitle.Width() ) ? i->rectTitle.Width() : m_nAppWidthTitle;
-			} else {
-				TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
-			//	i->pStnTitle->SetWindowText( "GetTextExtentPoint32 fail to get the size of text!" );
-			}
-			//i->pStnTitle->MoveWindow( rect );
-			i->pStnTitle->MoveWindow( i->rectTitle );
-		//	dc.SelectObject( pOldFont );
-
-			i->rectTitle.top -= 3;
-			i->rectTitle.bottom += 3;
-			i->rectTitle.right += 10;
-			//CFont* pFont = i->pStnTitle->GetFont();
-			//LOGFONT LogFont;
-			//pFont->GetLogFont(&LogFont);
-			//LogFont.lfUnderline = 1;
-			//LogFont.lfHeight = 12;
-			//pFont->Detach();
-			//pFont->CreateFontIndirect(&LogFont);
-			//i->pStnTitle->SetFont( pFont );
-			//pFont->Detach();
-		}
+	for ( UINT i = 0; i < m_vstAppInfo.size(); i++ ){
+		CreateAppItem( i );
 	}
-
+	
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
 
 	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_TITLE_SPACING + APP_STN_W_SPACING;
-
 	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
-	UpdateUI( m_bIsShowTitle );
+	UpdateUI();
 
 	SetWindowPos( &wndTopMost, nScreenX, nScreenY, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE );
 }
+
+void CMyDockDlg::CreateAppItem( int nIdx )
+{
+	ST_APP_INFO& stApp = m_vstAppInfo.at( nIdx );
+	int l,t,r,b;
+	l = APP_STN_W_SPACING;
+	t = APP_STN_TOP + nIdx * APP_STN_H_DISTANCE;
+	r = APP_STN_W_DISTANCE;
+	b = t + m_sizeIcon.cy;
+
+	if ( ! stApp.strLink.IsEmpty() ){
+		//GetEnvironmentVariable();
+		UINT nRet;
+		if ( stApp.strIcon.IsEmpty() ){
+			if ( "\\" == stApp.strLink.Right( 1 ) ){
+				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &(stApp.hIcon), 1 );		// opened folder icon
+			} else {
+				UINT IconNum = ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 );
+				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &(stApp.hIcon), 1 );
+			}
+		} else {
+			UINT IconNum = ExtractIconEx( stApp.strIcon, -1, NULL, NULL, 0 );
+			UINT nIcoId = ( stApp.nIcoId < IconNum ) ? stApp.nIcoId : 0;
+			nRet = ExtractIconEx( stApp.strIcon, nIcoId, NULL, &(stApp.hIcon), 1 );
+		}
+		if ( -1 == (INT)nRet ){
+			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &(stApp.hIcon), 1 );		// unknown executable file's icon.
+			if ( nRet == -1 ){
+				ASSERT(0);
+			}
+		}
+
+		if ( NULL == stApp.hIcon ){
+			ASSERT(0);
+		} else {
+			stApp.pStnIcon = new CTransparentImage;
+			stApp.pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
+			//	stApp.pStnIcon->SetIcon( stApp.hIcon, 16, 16 );
+			stApp.pStnIcon->SetIcon( stApp.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
+			if ( ! stApp.strTip.IsEmpty() ){
+				stApp.pTipCtl = new CToolTipCtrl;
+				stApp.pTipCtl->Create( this );
+				stApp.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), stApp.strTip );
+			}
+		}
+	}
+
+	if ( ! stApp.strTitle.IsEmpty() ){
+		stApp.pStnTitle = new CStatic;
+		stApp.rectTitle.SetRect( r + APP_STN_TITLE_SPACING, t + 1, r + 100, b );
+		stApp.pStnTitle->Create( ""/*stApp.strTitle*/, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, stApp.rectTitle, this, IDC_STN_TITLE_HEAD + nIdx );
+
+		stApp.pStnFont = new CFont;
+		stApp.pStnFont->CreateFont( m_nFontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
+			ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+			DEFAULT_PITCH&FF_SWISS, m_strFontName );
+
+		stApp.pStnTitle->SetFont( stApp.pStnFont );
+
+		//	CRect rect;
+		CSize size( 0, 0 );
+		//	stApp.pStnTitle->GetWindowRect( rect );
+		//	ScreenToClient( &rect );
+		CClientDC dc( stApp.pStnTitle );
+		dc.SelectObject( stApp.pStnFont );
+		//	CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
+		//CString str;
+		//stApp.pStnTitle->GetWindowText( str );
+		if( ::GetTextExtentPoint32( (HDC)dc, stApp.strTitle, stApp.strTitle.GetLength(), &size ) ){
+			stApp.rectTitle.right = stApp.rectTitle.left + size.cx;
+			stApp.rectTitle.bottom = stApp.rectTitle.top + size.cy;
+			m_nAppWidthTitle = ( m_nAppWidthTitle < stApp.rectTitle.Width() ) ? stApp.rectTitle.Width() : m_nAppWidthTitle;
+		} else {
+			TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
+		}
+		stApp.pStnTitle->MoveWindow( stApp.rectTitle );
+		//	dc.SelectObject( pOldFont );
+
+//		stApp.rectTitle.top -= 3;
+//		stApp.rectTitle.bottom += 3;
+		stApp.rectTitle.right += 3;
+		//CFont* pFont = stApp.pStnTitle->GetFont();
+		//LOGFONT LogFont;
+		//pFont->GetLogFont(&LogFont);
+		//LogFont.lfUnderline = 1;
+		//LogFont.lfHeight = 12;
+		//pFont->Detach();
+		//pFont->CreateFontIndirect(&LogFont);
+		//stApp.pStnTitle->SetFont( pFont );
+		//pFont->Detach();
+	}
+}
+
 
 void CMyDockDlg::SaveSetting( void )
 {
@@ -438,7 +427,7 @@ void CMyDockDlg::OnPaint()
 			DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsAll );
 
 			if ( m_bIsHiding ){
-				CBrush brush( RGB( 220, 220, 220 ) );
+				CBrush brush( RGB( 255, 255, 255 ) );
 				GetDC()->FillRect( &rect, &brush );
 			} else {
 				CBrush brush( RGB( 0, 0, 0 ) );
@@ -781,12 +770,12 @@ void CMyDockDlg::OnRclickmenuShowtitles()
 {
 	m_bIsShowTitle = !m_bIsShowTitle;
 
-	UpdateUI( m_bIsShowTitle );
+	UpdateUI();
 }
 
-void CMyDockDlg::UpdateUI( bool bIsShowTitle )
+void CMyDockDlg::UpdateUI( void )
 {
-	if ( bIsShowTitle ){
+	if ( m_bIsShowTitle ){
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			if ( i->pStnTitle ){
 				i->pStnTitle->ModifyStyle( 0, WS_VISIBLE );
@@ -901,4 +890,102 @@ void CMyDockDlg::DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea,
 	DeleteObject( hBmp );
 	DeleteDC( hMemDC );
 	CloseThemeData( hThm );
+}
+
+void CMyDockDlg::OnDropFiles(HDROP hDropInfo)
+{
+	CString strFile;
+	char * lpszFileName = new char[MAX_PATH];
+
+	int nFileCount = ::DragQueryFile( hDropInfo, 0xFFFFFFFF, NULL, MAX_PATH );
+
+	for ( int i = 0; i < nFileCount; i++ ){
+		/*UINT nChars = */::DragQueryFile( hDropInfo, i, strFile.GetBuffer(MAX_PATH), MAX_PATH );
+		strFile.ReleaseBuffer();
+		TRACE( "%s\n", strFile );
+		GetLnkInfo( strFile );
+	}
+	UpdateUI();
+
+	for ( int i = nFileCount; i >= 1; i-- ){
+		SaveAppSetting( m_vstAppInfo.size() - i );
+	}
+	
+
+	::DragFinish( hDropInfo );
+	delete[] lpszFileName;
+
+	CDialogEx::OnDropFiles(hDropInfo);
+}
+
+
+void CMyDockDlg::GetLnkInfo( const CString& strDest )
+{
+	ST_APP_INFO stAppInfo;
+	CHAR szBuff[MAX_PATH];
+	CLnkParser lp;
+
+	if ( FAILED( lp.LoadFile( strDest.AllocSysString() ) ) ){
+		return;
+	}
+
+	if ( SUCCEEDED( lp.GetTargetPath( szBuff, MAX_PATH ) ) ){
+		stAppInfo.strLink.Format( "%s", szBuff );
+		TRACE( "Path\t%s\n", szBuff );
+	}
+
+	if ( SUCCEEDED( lp.GetTargetArguments( szBuff, MAX_PATH ) ) ){
+		stAppInfo.strPara.Format( "%s", szBuff );
+		TRACE( "Args\t%s\n", szBuff );
+	}
+
+	if ( SUCCEEDED( lp.GetTargetWorkingDirectory( szBuff, MAX_PATH ) ) ){
+		stAppInfo.strDir.Format( "%s", szBuff );
+		TRACE( "Dir \t%s\n", szBuff );
+	}
+
+	if ( SUCCEEDED( lp.GetTargetIconLocation( szBuff, MAX_PATH, (int*)&stAppInfo.nIcoId ) ) ){
+		stAppInfo.strIcon.Format( "%s", szBuff );
+		TRACE( "Icon\t%s,%d\n", szBuff, stAppInfo.nIcoId );
+	}
+
+	stAppInfo.strTip.Empty();
+	stAppInfo.pTipCtl = NULL;
+	stAppInfo.strTitle = strDest.Mid( strDest.ReverseFind( '\\' ) + 1 );
+	stAppInfo.strTitle.Replace( ".lnk", "" );
+	stAppInfo.strTitle = " " + stAppInfo.strTitle;
+	stAppInfo.pStnIcon  = NULL;
+	stAppInfo.pStnTitle = NULL;
+	stAppInfo.pStnFont = NULL;
+
+	m_vstAppInfo.push_back( stAppInfo );
+	
+	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+
+	CreateAppItem( m_vstAppInfo.size() - 1 );
+}
+
+void CMyDockDlg::SaveAppSetting( UINT nIdx )
+{
+	ST_APP_INFO& stApp = m_vstAppInfo.at( nIdx );
+	CString strSection;
+	CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
+	char szBuff[16];
+
+	strSection.Format( "App%d", nIdx + 1 );
+
+	WritePrivateProfileString( strSection, strKey[0], stApp.strTitle.Mid( 1 ), m_strSettingFile );	// cut the space at begin.
+
+	WritePrivateProfileString( strSection, strKey[1], stApp.strLink, m_strSettingFile );
+
+	WritePrivateProfileString( strSection, strKey[2], stApp.strPara, m_strSettingFile );
+	
+	WritePrivateProfileString( strSection, strKey[3], stApp.strDir, m_strSettingFile );
+
+	WritePrivateProfileString( strSection, strKey[4], stApp.strTip, m_strSettingFile );
+
+	WritePrivateProfileString( strSection, strKey[5], stApp.strIcon, m_strSettingFile );
+
+	_itoa_s( stApp.nIcoId, szBuff, 10 );
+	WritePrivateProfileString( strSection, strKey[6], szBuff, m_strSettingFile );
 }
