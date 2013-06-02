@@ -45,6 +45,9 @@
     <ClInclude Include="AboutDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="LnkParser.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MyDock.cpp">
@@ -60,6 +63,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="AboutDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LnkParser.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
