@@ -171,6 +171,15 @@ void CMyDockDlg::LoadSetting( void ){
 	m_strSettingFile = m_strSettingFile.Left( m_strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
 	TRACE( "%s\n", m_strSettingFile );
 
+	CFileStatus s;
+	if ( !CFile::GetStatus( m_strSettingFile, s ) ){
+		CString strErrMsg;
+		strErrMsg.Format( "%s not found!", m_strSettingFile );
+		MessageBox( strErrMsg );
+		SendMessage( WM_CLOSE );
+		return;
+	}
+
 	GetPrivateProfileString( "options", "screen x", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	strBuff.ReleaseBuffer();
 	nScreenX = strtol( strBuff, NULL, 10 );
@@ -198,6 +207,17 @@ void CMyDockDlg::LoadSetting( void ){
 	strBuff.ReleaseBuffer();
 	m_bIsShowTitle = ( "yes" == strBuff ) ? true : false;
 
+	GetPrivateProfileString( "options", "font name", "SimSun", m_strFontName.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	m_strFontName.ReleaseBuffer();
+	//if ( m_strFontName.IsEmpty() ){
+	//	m_strFontName = "SimSun";
+	//}
+
+	GetPrivateProfileString( "options", "font size", "12", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+	strBuff.ReleaseBuffer();
+	m_nFontSize = strtol( strBuff, NULL, 10 );
+	
+
 	for ( UINT i = 0; i < MAX_APP_NUM; i++ ){
 		ST_APP_INFO stAppInfo;
 		stAppInfo.pStnIcon = NULL;
@@ -208,6 +228,7 @@ void CMyDockDlg::LoadSetting( void ){
 		stAppInfo.pTipCtl = NULL;
 
 		strSection.Format( "App%d", i + 1  );
+
 		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strLink.ReleaseBuffer();
 
@@ -230,6 +251,12 @@ void CMyDockDlg::LoadSetting( void ){
 		GetPrivateProfileString( strSection, strKey[6], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
 		stAppInfo.strTitle = " " + stAppInfo.strTitle;
+
+		int n = MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), NULL, 0 );
+		wchar_t* pWideChar = (wchar_t*)calloc( n + 1, sizeof(wchar_t) );
+		MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), pWideChar, n );
+		stAppInfo.strTitle = CString( pWideChar );
+
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -298,10 +325,10 @@ void CMyDockDlg::LoadSetting( void ){
 			i->pStnTitle->Create( ""/*i->strTitle*/, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, i->rectTitle, this, IDC_STN_TITLE_HEAD + nIdx );
 
 			i->pStnFont = new CFont;
-			i->pStnFont->CreateFont( 12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
+			i->pStnFont->CreateFont( m_nFontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0,
 				ANSI_CHARSET, OUT_DEFAULT_PRECIS,
 				CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-				DEFAULT_PITCH&FF_SWISS, "SimSun" );
+				DEFAULT_PITCH&FF_SWISS, /*"SimSun"*/m_strFontName );
 
 			i->pStnTitle->SetFont( i->pStnFont );
 
@@ -310,7 +337,8 @@ void CMyDockDlg::LoadSetting( void ){
 		//	i->pStnTitle->GetWindowRect( rect );
 		//	ScreenToClient( &rect );
 			CClientDC dc( i->pStnTitle );
-			CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
+			dc.SelectObject( i->pStnFont );
+		//	CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
 			//CString str;
 			//i->pStnTitle->GetWindowText( str );
 			//if( ::GetTextExtentPoint32( (HDC)dc, str, str.GetLength(), &size ) ){
@@ -318,7 +346,7 @@ void CMyDockDlg::LoadSetting( void ){
 			//	rect.right = rect.left + size.cx + 15; // size.cx has a little small sometimes.
 			//	rect.bottom = rect.top + size.cy;
 			//	m_nAppWidthTitle = ( m_nAppWidthTitle < rect.Width() ) ? rect.Width() : m_nAppWidthTitle;
-				i->rectTitle.right = i->rectTitle.left + size.cx + 5;
+				i->rectTitle.right = i->rectTitle.left + size.cx;
 				i->rectTitle.bottom = i->rectTitle.top + size.cy;
 				m_nAppWidthTitle = ( m_nAppWidthTitle < i->rectTitle.Width() ) ? i->rectTitle.Width() : m_nAppWidthTitle;
 			} else {
@@ -327,7 +355,7 @@ void CMyDockDlg::LoadSetting( void ){
 			}
 			//i->pStnTitle->MoveWindow( rect );
 			i->pStnTitle->MoveWindow( i->rectTitle );
-			dc.SelectObject( pOldFont );
+		//	dc.SelectObject( pOldFont );
 
 			i->rectTitle.top -= 3;
 			i->rectTitle.bottom += 3;
@@ -346,7 +374,7 @@ void CMyDockDlg::LoadSetting( void ){
 
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
 
-	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_TITLE_SPACING + 10 + APP_STN_W_SPACING;
+	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_TITLE_SPACING + APP_STN_W_SPACING;
 
 	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
@@ -423,10 +451,6 @@ void CMyDockDlg::OnPaint()
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			DrawGlowingText( dc.m_hDC, A2W( i->strTitle ), i->rectTitle );
 		}
-		//CWindowDC dc(this);
-		//RECT rcText = {10, 10, 300, 80};
-		//USES_CONVERSION;
-		//DrawGlowingText( dc.m_hDC, A2W("  test"), rcText );
 	}
 }
 
@@ -831,7 +855,7 @@ void CMyDockDlg::DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea,
 	DWORD dwTextFlags, int iGlowSize )
 {
 	// get the handle of the theme
-	HTHEME hThm = OpenThemeData( /*GetDesktopWindow()*/m_hWnd, L"TextStyle" );
+	HTHEME hThm = OpenThemeData( /*GetDesktopWindow()*/m_hWnd, L"TextStyle"/*L"Window"*/ );
 	
 	// create DIB
 	HDC hMemDC = CreateCompatibleDC( hDC );
@@ -849,12 +873,25 @@ void CMyDockDlg::DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea,
 	// draw options
 	DTTOPTS dttopts = { 0 };
 	dttopts.dwSize = sizeof( DTTOPTS );
-	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED;
+	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED | DTT_SHADOWTYPE;
 	dttopts.iGlowSize = iGlowSize;	// the size of the glow
+	dttopts.iTextShadowType = /*TST_NONE TST_SINGLE*/ TST_CONTINUOUS;
 	
+	// Select afont.
+	LOGFONT lgFont={0};
+	HFONT hFontOld = NULL;
+
+	HFONT hFont =  CreateFont( m_nFontSize, 0, 0, 0, 400,
+		FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, DEFAULT_PITCH,
+		m_strFontName );
+
+	hFontOld = (HFONT)SelectObject( hMemDC, hFont );
+
+
 	// draw the text
 	RECT rc = { 0, 0, rcArea.right - rcArea.left, rcArea.bottom - rcArea.top };
-	HRESULT hr = DrawThemeTextEx( hThm, hMemDC, TEXT_LABEL, 0, szText, -1, dwTextFlags , &rc, &dttopts );
+	HRESULT hr = DrawThemeTextEx( hThm, hMemDC, 0/*TEXT_LABEL*/, 0, szText, -1, dwTextFlags , &rc, &dttopts );
 	if ( FAILED( hr ) ) return;
 	BitBlt( hDC, rcArea.left, rcArea.top, rcArea.right - rcArea.left, 
 		rcArea.bottom - rcArea.top, hMemDC, 0, 0, SRCCOPY | CAPTUREBLT );

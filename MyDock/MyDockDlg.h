@@ -78,7 +78,7 @@ public:
 
 	void UpdateUI( bool bIsShowTitle );
 
-	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 5 );
+	void DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea, DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 6 );
 
 	enum { IDD = IDD_MYDOCK_DIALOG };
 
@@ -112,6 +112,8 @@ protected:
 	LONG m_nAppWidthTitle;
 	DWORD m_dwHoldTimeBeforeShow;
 	DWORD m_dwHoldTimeBeforeHide;
+	CString m_strFontName;
+	int m_nFontSize;
 
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 

@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "MyDock.h"
 #include "MyDockDlg.h"
+#include <locale.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -56,8 +57,8 @@ BOOL CMyDockApp::InitInstance()
 		AfxMessageBox(IDP_SOCKETS_INIT_FAILED);
 		return FALSE;
 	}
-
-
+	
+	setlocale(LC_ALL,"");
 	AfxEnableControlContainer();
 
 	// 创建 shell 管理器，以防对话框包含
