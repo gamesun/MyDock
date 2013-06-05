@@ -1,7 +1,7 @@
-// lnkparser.cpp
+// LnkParser.cpp
 
 #include "stdafx.h"
-#include "lnkparser.h"
+#include "LnkParser.h"
 
 
 

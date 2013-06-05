@@ -20,13 +20,13 @@ public:
 	
 	HRESULT LoadFile( LPCWSTR lpFileName );
 	HRESULT GetTargetPath( LPTSTR lpStr, int cch );
-	HRESULT CLnkParser::GetTargetIDList( LPITEMIDLIST *ppidl );
-	HRESULT CLnkParser::GetTargetDescription( LPTSTR pszName, int cch );
-	HRESULT CLnkParser::GetTargetWorkingDirectory( LPTSTR pszDir, int cch );
-	HRESULT CLnkParser::GetTargetArguments( LPTSTR pszArgs, int cch );
-	HRESULT CLnkParser::GetTargetHotkey( WORD *pwHotkey );
-	HRESULT CLnkParser::GetTargetShowCmd( int *piShowCmd );
-	HRESULT CLnkParser::GetTargetIconLocation( LPTSTR pszIconPath, int cch, int *piIcon );
+	HRESULT GetTargetIDList( LPITEMIDLIST *ppidl );
+	HRESULT GetTargetDescription( LPTSTR pszName, int cch );
+	HRESULT GetTargetWorkingDirectory( LPTSTR pszDir, int cch );
+	HRESULT GetTargetArguments( LPTSTR pszArgs, int cch );
+	HRESULT GetTargetHotkey( WORD *pwHotkey );
+	HRESULT GetTargetShowCmd( int *piShowCmd );
+	HRESULT GetTargetIconLocation( LPTSTR pszIconPath, int cch, int *piIcon );
 
 private:
 	HRESULT Initialize( void );
