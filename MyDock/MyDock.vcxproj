@@ -107,6 +107,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TransparentImage.h" />
+    <ClInclude Include="UrlParser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
@@ -118,6 +119,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="TransparentImage.cpp" />
+    <ClCompile Include="UrlParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MyDock.rc" />
