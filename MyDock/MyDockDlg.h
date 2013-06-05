@@ -70,7 +70,8 @@ public:
 	CMyDockDlg(CWnd* pParent = NULL);	// 
 	~CMyDockDlg();
 
-	void GetLnkInfo( const CString& strDest );
+	HRESULT GetLnkInfo( const CString& strDest );
+	HRESULT GetUrlInfo( const CString& strDest );
 	void CreateAppItem( int nIdx );
 	void SaveAppSetting( UINT nIdx );
 	void LoadSetting( void );
@@ -152,3 +153,4 @@ public:
 	afx_msg void OnDropFiles(HDROP hDropInfo);
 };
 
+int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest );

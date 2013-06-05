@@ -10,6 +10,7 @@
 #include "Vsstyle.h"
 #include "Vssym32.h"
 #include "LnkParser.h"
+#include "UrlParser.h"
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -32,6 +33,7 @@ const int c_nIconSize[] = {
 	128		// 7
 };
 
+CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
 
 CMyDockDlg::CMyDockDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMyDockDlg::IDD, pParent)
@@ -163,7 +165,6 @@ CMyDockDlg::~CMyDockDlg(){
 }
 
 void CMyDockDlg::LoadSetting( void ){
-	CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
 	CString strBuff;
 	CString strSection;
 	int nScreenX, nScreenY;
@@ -228,35 +229,49 @@ void CMyDockDlg::LoadSetting( void ){
 
 		strSection.Format( "App%d", i + 1  );
 
+		char* pszBuff;
+
 		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strTitle = pszBuff;
+		delete[] pszBuff;
 		stAppInfo.strTitle = " " + stAppInfo.strTitle;
 
 		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strLink.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strLink, stAppInfo.strLink.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strLink = pszBuff;
+		delete[] pszBuff;
 
 		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strPara.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strPara, stAppInfo.strPara.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strPara = pszBuff;
+		delete[] pszBuff;
 
 		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strDir.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strDir, stAppInfo.strDir.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strDir = pszBuff;
+		delete[] pszBuff;
 
 		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTip.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strTip, stAppInfo.strTip.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strTip = pszBuff;
+		delete[] pszBuff;
 
 		GetPrivateProfileString( strSection, strKey[5], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strIcon.ReleaseBuffer();
+		CodePageConvert( CP_UTF8, stAppInfo.strIcon, stAppInfo.strIcon.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.strIcon = pszBuff;
+		delete[] pszBuff;
 
 		GetPrivateProfileString( strSection, strKey[6], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		strBuff.ReleaseBuffer();
-		stAppInfo.nIcoId = strtol( strBuff, NULL, 10 );
-
-		int n = MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), NULL, 0 );
-		WCHAR* pWideChar = ( WCHAR* )calloc( n + 1, sizeof( WCHAR ) );	// calloc will initialize its all bits to zero.
-		MultiByteToWideChar( CP_UTF8, 0, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), pWideChar, n );
-		stAppInfo.strTitle = CString( pWideChar );
-
-		delete[] pWideChar;
+		CodePageConvert( CP_UTF8, strBuff, strBuff.GetLength(), CP_ACP, pszBuff );
+		stAppInfo.nIcoId = strtol( pszBuff, NULL, 10 );
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -291,18 +306,21 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 		//GetEnvironmentVariable();
 		UINT nRet;
 		if ( stApp.strIcon.IsEmpty() ){
-			if ( "\\" == stApp.strLink.Right( 1 ) ){
+			DWORD dwAttrib = GetFileAttributes( stApp.strLink );
+			if ( ( dwAttrib != -1 ) && 
+				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){
 				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &(stApp.hIcon), 1 );		// opened folder icon
-			} else {
-				UINT IconNum = ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 );
+			} else if ( 0 < ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 ) ){
 				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &(stApp.hIcon), 1 );
+			} else {
+				nRet = -1;
 			}
 		} else {
 			UINT IconNum = ExtractIconEx( stApp.strIcon, -1, NULL, NULL, 0 );
 			UINT nIcoId = ( stApp.nIcoId < IconNum ) ? stApp.nIcoId : 0;
 			nRet = ExtractIconEx( stApp.strIcon, nIcoId, NULL, &(stApp.hIcon), 1 );
 		}
-		if ( -1 == (INT)nRet ){
+		if ( -1 == nRet ){
 			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &(stApp.hIcon), 1 );		// unknown executable file's icon.
 			if ( nRet == -1 ){
 				ASSERT(0);
@@ -895,19 +913,32 @@ void CMyDockDlg::DrawGlowingText( HDC hDC, LPWSTR szText, RECT &rcArea,
 void CMyDockDlg::OnDropFiles(HDROP hDropInfo)
 {
 	CString strFile;
+	int nValidLnkCnt;
 	char * lpszFileName = new char[MAX_PATH];
 
 	int nFileCount = ::DragQueryFile( hDropInfo, 0xFFFFFFFF, NULL, MAX_PATH );
 
+	nValidLnkCnt = 0;
+	CString strTmp;
 	for ( int i = 0; i < nFileCount; i++ ){
 		/*UINT nChars = */::DragQueryFile( hDropInfo, i, strFile.GetBuffer(MAX_PATH), MAX_PATH );
 		strFile.ReleaseBuffer();
 		TRACE( "%s\n", strFile );
-		GetLnkInfo( strFile );
+		strTmp = strFile;
+		strTmp.MakeLower();
+		if ( "lnk" == strTmp.Right( 3 ) ){
+			if ( SUCCEEDED( GetLnkInfo( strFile ) ) ){
+				nValidLnkCnt++;
+			}
+		} else if ( "url" == strTmp.Right( 3 ) ){
+			if ( SUCCEEDED( GetUrlInfo( strFile ) ) ){
+				nValidLnkCnt++;
+			}			
+		}
 	}
 	UpdateUI();
 
-	for ( int i = nFileCount; i >= 1; i-- ){
+	for ( int i = nValidLnkCnt; i >= 1; i-- ){
 		SaveAppSetting( m_vstAppInfo.size() - i );
 	}
 	
@@ -919,14 +950,14 @@ void CMyDockDlg::OnDropFiles(HDROP hDropInfo)
 }
 
 
-void CMyDockDlg::GetLnkInfo( const CString& strDest )
+HRESULT CMyDockDlg::GetLnkInfo( const CString& strDest )
 {
 	ST_APP_INFO stAppInfo;
 	CHAR szBuff[MAX_PATH];
 	CLnkParser lp;
 
 	if ( FAILED( lp.LoadFile( strDest.AllocSysString() ) ) ){
-		return;
+		return -1;
 	}
 
 	if ( SUCCEEDED( lp.GetTargetPath( szBuff, MAX_PATH ) ) ){
@@ -949,7 +980,6 @@ void CMyDockDlg::GetLnkInfo( const CString& strDest )
 		TRACE( "Icon\t%s,%d\n", szBuff, stAppInfo.nIcoId );
 	}
 
-	stAppInfo.strTip.Empty();
 	stAppInfo.pTipCtl = NULL;
 	stAppInfo.strTitle = strDest.Mid( strDest.ReverseFind( '\\' ) + 1 );
 	stAppInfo.strTitle.Replace( ".lnk", "" );
@@ -963,29 +993,103 @@ void CMyDockDlg::GetLnkInfo( const CString& strDest )
 	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	CreateAppItem( m_vstAppInfo.size() - 1 );
+
+	return S_OK;
 }
 
 void CMyDockDlg::SaveAppSetting( UINT nIdx )
 {
 	ST_APP_INFO& stApp = m_vstAppInfo.at( nIdx );
 	CString strSection;
-	CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
 	char szBuff[16];
+	char* pszBuff;
 
 	strSection.Format( "App%d", nIdx + 1 );
 
-	WritePrivateProfileString( strSection, strKey[0], stApp.strTitle.Mid( 1 ), m_strSettingFile );	// cut the space at begin.
+	// avoid the space at begin.
+//	WritePrivateProfileString( strSection, strKey[0], stApp.strTitle.Mid( 1 ), m_strSettingFile );	
+	CodePageConvert( CP_ACP, stApp.strTitle.Mid( 1 ), stApp.strTitle.GetLength() - 1, CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[0], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 
-	WritePrivateProfileString( strSection, strKey[1], stApp.strLink, m_strSettingFile );
+	CodePageConvert( CP_ACP, stApp.strLink, stApp.strLink.GetLength(), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[1], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 
-	WritePrivateProfileString( strSection, strKey[2], stApp.strPara, m_strSettingFile );
-	
-	WritePrivateProfileString( strSection, strKey[3], stApp.strDir, m_strSettingFile );
+	CodePageConvert( CP_ACP, stApp.strPara, stApp.strPara.GetLength(), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[2], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 
-	WritePrivateProfileString( strSection, strKey[4], stApp.strTip, m_strSettingFile );
+	CodePageConvert( CP_ACP, stApp.strDir, stApp.strDir.GetLength(), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[3], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 
-	WritePrivateProfileString( strSection, strKey[5], stApp.strIcon, m_strSettingFile );
+	CodePageConvert( CP_ACP, stApp.strTip, stApp.strTip.GetLength(), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[4], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
+
+	CodePageConvert( CP_ACP, stApp.strIcon, stApp.strIcon.GetLength(), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[5], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 
 	_itoa_s( stApp.nIcoId, szBuff, 10 );
-	WritePrivateProfileString( strSection, strKey[6], szBuff, m_strSettingFile );
+	CodePageConvert( CP_ACP, szBuff, strlen(szBuff), CP_UTF8, pszBuff );
+	WritePrivateProfileString( strSection, strKey[6], pszBuff, m_strSettingFile );
+	delete[] pszBuff;
 }
+
+HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
+{
+	ST_APP_INFO stAppInfo;
+	CHAR szBuff[MAX_PATH];
+	CUrlParser up;
+
+	up.LoadFile( strDest.AllocSysString() );
+
+	up.GetTargetUrl( szBuff, MAX_PATH );
+	stAppInfo.strLink.Format( "%s", szBuff );
+
+	up.GetTargetIconLocation( szBuff, MAX_PATH, (int*)&stAppInfo.nIcoId );
+	stAppInfo.strIcon.Format( "%s", szBuff );
+
+	stAppInfo.pTipCtl = NULL;
+	stAppInfo.strTitle = strDest.Mid( strDest.ReverseFind( '\\' ) + 1 );
+	int npos = stAppInfo.strTitle.ReverseFind( '.' );
+	if ( 0 <= npos ){
+		stAppInfo.strTitle = stAppInfo.strTitle.Left( npos );
+	}
+	stAppInfo.strTitle = " " + stAppInfo.strTitle;
+	stAppInfo.pStnIcon  = NULL;
+	stAppInfo.pStnTitle = NULL;
+	stAppInfo.pStnFont = NULL;
+
+	m_vstAppInfo.push_back( stAppInfo );
+	
+	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+
+	CreateAppItem( m_vstAppInfo.size() - 1 );
+
+	return S_OK;
+}
+
+
+int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest )
+{
+	int iWideCharCnt = ::MultiByteToWideChar( SrcCodePage, 0, pszSrc, iBuffLen, NULL, 0 );
+	LPWSTR lpszWideChar = new wchar_t[iWideCharCnt + 1];
+	memset(lpszWideChar, 0, ( iWideCharCnt + 1 ) * sizeof( WCHAR ) );
+	iWideCharCnt = MultiByteToWideChar( SrcCodePage, 0, pszSrc, iBuffLen, lpszWideChar, iWideCharCnt );
+
+	if( DestCodePage == 54936 
+		&& !IsValidCodePage( 54936 ) )
+		DestCodePage = 936;
+
+	int iDestCnt = WideCharToMultiByte( DestCodePage, 0, lpszWideChar, iWideCharCnt, NULL, 0, NULL, NULL );
+	pszDest = new char[iDestCnt + 1];
+	memset( pszDest, 0, iDestCnt + 1 );
+	iDestCnt = WideCharToMultiByte( DestCodePage, 0, lpszWideChar, iWideCharCnt, pszDest, iDestCnt, NULL, NULL );
+
+	delete []lpszWideChar; 
+	return iDestCnt;
+}
+
