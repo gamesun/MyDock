@@ -60,6 +60,7 @@ typedef struct _app_info {
 	
 	CString strTip;
 	CToolTipCtrl* pTipCtl;
+	bool bIsUrl;
 } ST_APP_INFO;
 
 // CMyDockDlg 
@@ -118,6 +119,7 @@ protected:
 	DWORD m_dwHoldTimeBeforeHide;
 	CString m_strFontName;
 	int m_nFontSize;
+	HICON m_hUrlIcon;
 
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 
@@ -154,3 +156,5 @@ public:
 };
 
 int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest );
+int Utf8ToAnsi( CString& strInOut );
+int AnsiToUtf8( CString& strInOut );

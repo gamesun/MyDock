@@ -11,6 +11,7 @@
 #include "Vssym32.h"
 #include "LnkParser.h"
 #include "UrlParser.h"
+#include <atlbase.h>
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -33,7 +34,7 @@ const int c_nIconSize[] = {
 	128		// 7
 };
 
-CString strKey[7] = { "title", "link", "para", "workdir", "tip", "icon", "icoid" };
+CString strKey[8] = { "title", "link", "para", "workdir", "tip", "icon", "icoid", "isURL" };
 
 CMyDockDlg::CMyDockDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMyDockDlg::IDD, pParent)
@@ -168,7 +169,7 @@ void CMyDockDlg::LoadSetting( void ){
 	CString strBuff;
 	CString strSection;
 	int nScreenX, nScreenY;
-	
+
 	GetModuleFileName( NULL, m_strSettingFile.GetBuffer(MAX_PATH) , MAX_PATH );
 	m_strSettingFile.ReleaseBuffer();
 	m_strSettingFile = m_strSettingFile.Left( m_strSettingFile.ReverseFind('\\') ) + "\\setting.ini";
@@ -183,28 +184,42 @@ void CMyDockDlg::LoadSetting( void ){
 		return;
 	}
 
-	GetPrivateProfileString( "options", "screen x", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	nScreenX = strtol( strBuff, NULL, 10 );
+	CString strDefaultBrowser;
+	CRegKey rk;
+	if ( rk.Open( HKEY_CLASSES_ROOT, "http\\shell\\open\\command", KEY_READ ) != ERROR_SUCCESS ){
+		TRACE( "failed opening the HKEY_CLASSES_ROOT\\http\\shell\\open\\command\n" );
+	} else {
+		ULONG nLen;
+		rk.QueryStringValue( "", strDefaultBrowser.GetBuffer(MAX_PATH), &nLen );
+		strDefaultBrowser.ReleaseBuffer();
+		strDefaultBrowser.Remove( '\"' );
+		strDefaultBrowser = strDefaultBrowser.Left( strDefaultBrowser.Find( ".exe" ) + 4 );
 
-	GetPrivateProfileString( "options", "screen y", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	nScreenY = strtol( strBuff, NULL, 10 );
-
-	GetPrivateProfileString( "options", "icon size", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	int nTmp = strtol( strBuff, NULL, 10 );
-	if ( 0 <= nTmp && nTmp < sizeof( c_nIconSize ) / sizeof( c_nIconSize[0] ) ){
-		m_sizeIcon.SetSize( c_nIconSize[nTmp], c_nIconSize[nTmp] );
+		UINT nRet = -1;
+		if ( ! strDefaultBrowser.IsEmpty() ){
+			if ( 0 < ExtractIconEx( strDefaultBrowser, -1, NULL, NULL, 0 ) ){
+				nRet = ExtractIconEx( strDefaultBrowser, 0, NULL, &m_hUrlIcon, 1 );
+			}
+		}
+		if ( -1 == nRet ){
+			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &m_hUrlIcon, 1 );		// unknown executable file's icon.
+			if ( nRet == -1 ){
+				ASSERT(0);
+			}
+		}
 	}
 
-	GetPrivateProfileString( "options", "hold time before show", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	m_dwHoldTimeBeforeShow = strtol( strBuff, NULL, 10 );
+	nScreenX = GetPrivateProfileInt( "options", "screen x", 0, m_strSettingFile );
 
-	GetPrivateProfileString( "options", "hold time before hide", "0", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	m_dwHoldTimeBeforeHide = strtol( strBuff, NULL, 10 );
+	nScreenY = GetPrivateProfileInt( "options", "screen y", 0, m_strSettingFile );
+
+	UINT nTmp = GetPrivateProfileInt( "options", "icon size", 0, m_strSettingFile );
+	nTmp = ( nTmp < sizeof( c_nIconSize ) / sizeof( c_nIconSize[0] ) ) ? nTmp : 0;
+	m_sizeIcon.SetSize( c_nIconSize[nTmp], c_nIconSize[nTmp] );
+
+	m_dwHoldTimeBeforeShow = GetPrivateProfileInt( "options", "hold time before show", 0, m_strSettingFile );
+	
+	m_dwHoldTimeBeforeHide = GetPrivateProfileInt( "options", "hold time before hide", 0, m_strSettingFile );
 
 	GetPrivateProfileString( "options", "show titles", "no", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	strBuff.ReleaseBuffer();
@@ -212,11 +227,10 @@ void CMyDockDlg::LoadSetting( void ){
 
 	GetPrivateProfileString( "options", "font name", "SimSun", m_strFontName.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 	m_strFontName.ReleaseBuffer();
+	Utf8ToAnsi( m_strFontName );
 
-	GetPrivateProfileString( "options", "font size", "12", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
-	strBuff.ReleaseBuffer();
-	m_nFontSize = strtol( strBuff, NULL, 10 );
-	
+	m_nFontSize = GetPrivateProfileInt( "options", "font size", 12, m_strSettingFile );
+
 
 	for ( UINT i = 0; i < MAX_APP_NUM; i++ ){
 		ST_APP_INFO stAppInfo;
@@ -226,52 +240,40 @@ void CMyDockDlg::LoadSetting( void ){
 		stAppInfo.hIcon = NULL;
 		stAppInfo.nIcoId = 0;
 		stAppInfo.pTipCtl = NULL;
+		stAppInfo.bIsUrl = false;
 
 		strSection.Format( "App%d", i + 1  );
 
-		char* pszBuff;
-
 		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strTitle, stAppInfo.strTitle.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strTitle = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strTitle );
 		stAppInfo.strTitle = " " + stAppInfo.strTitle;
 
 		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strLink.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strLink, stAppInfo.strLink.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strLink = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strLink );
 
 		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strPara.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strPara, stAppInfo.strPara.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strPara = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strPara );
 
 		GetPrivateProfileString( strSection, strKey[3], "", stAppInfo.strDir.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strDir.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strDir, stAppInfo.strDir.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strDir = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strDir );
 
 		GetPrivateProfileString( strSection, strKey[4], "", stAppInfo.strTip.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTip.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strTip, stAppInfo.strTip.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strTip = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strTip );
 
 		GetPrivateProfileString( strSection, strKey[5], "", stAppInfo.strIcon.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strIcon.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, stAppInfo.strIcon, stAppInfo.strIcon.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.strIcon = pszBuff;
-		delete[] pszBuff;
+		Utf8ToAnsi( stAppInfo.strIcon );
 
-		GetPrivateProfileString( strSection, strKey[6], "", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
+		stAppInfo.nIcoId = GetPrivateProfileInt( strSection, strKey[6], 0, m_strSettingFile );
+
+		GetPrivateProfileString( strSection, strKey[7], "no", strBuff.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		strBuff.ReleaseBuffer();
-		CodePageConvert( CP_UTF8, strBuff, strBuff.GetLength(), CP_ACP, pszBuff );
-		stAppInfo.nIcoId = strtol( pszBuff, NULL, 10 );
+		stAppInfo.bIsUrl = ( "yes" == strBuff ) ? true : false;
 
 		if ( !stAppInfo.strLink.IsEmpty() ){
 			m_vstAppInfo.push_back( stAppInfo );
@@ -304,24 +306,26 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 
 	if ( ! stApp.strLink.IsEmpty() ){
 		//GetEnvironmentVariable();
-		UINT nRet;
-		if ( stApp.strIcon.IsEmpty() ){
+		UINT nRet = 0;
+		if ( stApp.bIsUrl ){
+			stApp.hIcon = m_hUrlIcon;
+		} else if ( stApp.strIcon.IsEmpty() ){
 			DWORD dwAttrib = GetFileAttributes( stApp.strLink );
 			if ( ( dwAttrib != -1 ) && 
-				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){
-				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &(stApp.hIcon), 1 );		// opened folder icon
+				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){ 
+				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &stApp.hIcon, 1 );		// opened folder icon
 			} else if ( 0 < ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 ) ){
-				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &(stApp.hIcon), 1 );
+				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &stApp.hIcon, 1 );
 			} else {
 				nRet = -1;
 			}
 		} else {
 			UINT IconNum = ExtractIconEx( stApp.strIcon, -1, NULL, NULL, 0 );
 			UINT nIcoId = ( stApp.nIcoId < IconNum ) ? stApp.nIcoId : 0;
-			nRet = ExtractIconEx( stApp.strIcon, nIcoId, NULL, &(stApp.hIcon), 1 );
+			nRet = ExtractIconEx( stApp.strIcon, nIcoId, NULL, &stApp.hIcon, 1 );
 		}
 		if ( -1 == nRet ){
-			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &(stApp.hIcon), 1 );		// unknown executable file's icon.
+			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &stApp.hIcon, 1 );		// unknown executable file's icon.
 			if ( nRet == -1 ){
 				ASSERT(0);
 			}
@@ -800,7 +804,7 @@ void CMyDockDlg::UpdateUI( void )
 			}
 		}
 
-		m_sizeApp.cx = m_nAppWidthTitle;
+		m_sizeApp.cx = m_nAppWidthTitle + 10;
 	} else {
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			if ( i->pStnTitle ){
@@ -987,6 +991,7 @@ HRESULT CMyDockDlg::GetLnkInfo( const CString& strDest )
 	stAppInfo.pStnIcon  = NULL;
 	stAppInfo.pStnTitle = NULL;
 	stAppInfo.pStnFont = NULL;
+	stAppInfo.bIsUrl = false;
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
@@ -1032,10 +1037,10 @@ void CMyDockDlg::SaveAppSetting( UINT nIdx )
 	WritePrivateProfileString( strSection, strKey[5], pszBuff, m_strSettingFile );
 	delete[] pszBuff;
 
+	// UTF-8 is backwards compatible with ASCII (ANSI)
 	_itoa_s( stApp.nIcoId, szBuff, 10 );
-	CodePageConvert( CP_ACP, szBuff, strlen(szBuff), CP_UTF8, pszBuff );
-	WritePrivateProfileString( strSection, strKey[6], pszBuff, m_strSettingFile );
-	delete[] pszBuff;
+	WritePrivateProfileString( strSection, strKey[6], szBuff, m_strSettingFile );
+	WritePrivateProfileString( strSection, strKey[7], ( stApp.bIsUrl ) ? "yes" : "no", m_strSettingFile );
 }
 
 HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
@@ -1062,6 +1067,7 @@ HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
 	stAppInfo.pStnIcon  = NULL;
 	stAppInfo.pStnTitle = NULL;
 	stAppInfo.pStnFont = NULL;
+	stAppInfo.bIsUrl = true;
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
@@ -1072,6 +1078,25 @@ HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
 	return S_OK;
 }
 
+int Utf8ToAnsi( CString& strInOut )
+{
+	char *pszTmp;
+	int nLen = CodePageConvert( CP_UTF8, strInOut, strInOut.GetLength(), CP_ACP, pszTmp );
+	strInOut = pszTmp;
+	delete[] pszTmp;
+	
+	return nLen;
+}
+
+int AnsiToUtf8( CString& strInOut )
+{
+	char *pszTmp;
+	int nLen = CodePageConvert( CP_ACP, strInOut, strInOut.GetLength(), CP_UTF8, pszTmp );
+	strInOut = pszTmp;
+	delete[] pszTmp;
+
+	return nLen;
+}
 
 int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest )
 {
