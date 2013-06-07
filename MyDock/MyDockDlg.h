@@ -17,13 +17,17 @@
 #define	IDC_STN_TITLE_HEAD			IDC_STN_TITLE1
 #define IDC_STN_TITLE_END			(IDC_STN_TITLE1 + MAX_APP_NUM)
 
-#define APP_STN_TOP					10
-#define APP_STN_BOTTOM				10
+#define APP_STN_TOP					15
+#define APP_STN_BOTTOM				12
 
-#define APP_STN_TITLE_SPACING		0
+#define APP_TITLE_W_SPACING			0
+#define APP_TITLE_H_SPACING			2
 
-#define APP_STN_W_SPACING	 		5
-#define APP_STN_H_SPACING	 		5
+#define APP_STN_W_SPACING	 		8
+#define APP_STN_H_SPACING	 		6 + APP_TITLE_H_SPACING
+
+#define APP_TITLE_H_OFFSET			((APP_STN_H_SPACING - APP_TITLE_H_SPACING)/2)
+
 #define APP_STN_W_DISTANCE 			(APP_STN_W_SPACING + m_sizeIcon.cx)
 #define APP_STN_H_DISTANCE 			(APP_STN_H_SPACING + m_sizeIcon.cy)
 

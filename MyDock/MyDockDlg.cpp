@@ -287,7 +287,7 @@ void CMyDockDlg::LoadSetting( void ){
 	
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
 
-	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_TITLE_SPACING + APP_STN_W_SPACING;
+	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_TITLE_W_SPACING + APP_STN_W_SPACING;
 	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	UpdateUI();
@@ -337,18 +337,18 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 			stApp.pStnIcon = new CTransparentImage;
 			stApp.pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
 			//	stApp.pStnIcon->SetIcon( stApp.hIcon, 16, 16 );
-			stApp.pStnIcon->SetIcon( stApp.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
-			if ( ! stApp.strTip.IsEmpty() ){
-				stApp.pTipCtl = new CToolTipCtrl;
-				stApp.pTipCtl->Create( this );
-				stApp.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), stApp.strTip );
-			}
+			stApp.pStnIcon->SetIcon( stApp.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );	// TODO: get the corresponding size icon
+			
+			stApp.pTipCtl = new CToolTipCtrl;
+			stApp.pTipCtl->Create( this );
+			stApp.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), ( stApp.strTip.IsEmpty() ) ? stApp.strTitle : stApp.strTip );
+
 		}
 	}
 
 	if ( ! stApp.strTitle.IsEmpty() ){
 		stApp.pStnTitle = new CStatic;
-		stApp.rectTitle.SetRect( r + APP_STN_TITLE_SPACING, t + 1, r + 100, b );
+		stApp.rectTitle.SetRect( r + APP_TITLE_W_SPACING, t - APP_TITLE_H_OFFSET, r + 100, b + APP_TITLE_H_OFFSET );
 		stApp.pStnTitle->Create( ""/*stApp.strTitle*/, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, stApp.rectTitle, this, IDC_STN_TITLE_HEAD + nIdx );
 
 		stApp.pStnFont = new CFont;
@@ -365,12 +365,12 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 		//	ScreenToClient( &rect );
 		CClientDC dc( stApp.pStnTitle );
 		dc.SelectObject( stApp.pStnFont );
-		//	CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary
+		//	CFont *pOldFont = dc.SelectObject( this->GetFont() );	// this step is necessary, I used to think so.
 		//CString str;
 		//stApp.pStnTitle->GetWindowText( str );
 		if( ::GetTextExtentPoint32( (HDC)dc, stApp.strTitle, stApp.strTitle.GetLength(), &size ) ){
 			stApp.rectTitle.right = stApp.rectTitle.left + size.cx;
-			stApp.rectTitle.bottom = stApp.rectTitle.top + size.cy;
+		//	stApp.rectTitle.bottom = stApp.rectTitle.top + size.cy;
 			m_nAppWidthTitle = ( m_nAppWidthTitle < stApp.rectTitle.Width() ) ? stApp.rectTitle.Width() : m_nAppWidthTitle;
 		} else {
 			TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
@@ -378,9 +378,9 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 		stApp.pStnTitle->MoveWindow( stApp.rectTitle );
 		//	dc.SelectObject( pOldFont );
 
-//		stApp.rectTitle.top -= 3;
-//		stApp.rectTitle.bottom += 3;
-		stApp.rectTitle.right += 3;
+	//	stApp.rectTitle.top -= 4;
+	//	stApp.rectTitle.bottom += 4;
+		stApp.rectTitle.right += 5;
 		//CFont* pFont = stApp.pStnTitle->GetFont();
 		//LOGFONT LogFont;
 		//pFont->GetLogFont(&LogFont);
@@ -457,10 +457,12 @@ void CMyDockDlg::OnPaint()
 			}
 		}
 
-		CWindowDC dc(this);
-		USES_CONVERSION;
-		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
-			DrawGlowingText( dc.m_hDC, A2W( i->strTitle ), i->rectTitle );
+		if ( m_bIsShowTitle ){
+			CWindowDC dc(this);
+			USES_CONVERSION;
+			for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+				DrawGlowingText( dc.m_hDC, A2W( i->strTitle ), i->rectTitle );
+			}
 		}
 	}
 }
@@ -709,13 +711,21 @@ BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 	//if ( dbgFlg && pMsg->message == WM_PAINT ){
 	//	return TRUE;
 	//}
-//	( pMsg->message == 0x0113 ) ? 0 : TRACE( ",%04X", pMsg->message );
+//	( pMsg->message == WM_TIMER ) ? 0 : TRACE( ",%04X", pMsg->message );
 
-	for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
-		if ( i->pTipCtl ){
-			i->pTipCtl->RelayEvent(pMsg);
+	//WM_RBUTTONDOWN
+	if ( pMsg->message == WM_RBUTTONUP ){
+		
+	}
+
+	if ( ! m_bIsShowTitle ){
+		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+			if ( i->pTipCtl ){
+				i->pTipCtl->RelayEvent(pMsg);
+			}
 		}
 	}
+
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
