@@ -65,6 +65,11 @@ typedef struct _app_info {
 	CString strTip;
 	CToolTipCtrl* pTipCtl;
 	bool bIsUrl;
+	int nSortIdx;
+
+	bool operator<( const _app_info &a ) const{
+		return nSortIdx < a.nSortIdx;
+	}
 } ST_APP_INFO;
 
 // CMyDockDlg 
@@ -78,6 +83,8 @@ public:
 	HRESULT GetLnkInfo( const CString& strDest );
 	HRESULT GetUrlInfo( const CString& strDest );
 	void CreateAppItem( int nIdx );
+	void SortAppStn( void );
+	void SwapAppStnPosi( UINT nIdxA, UINT nIdxB );
 	void SaveAppSetting( UINT nIdx );
 	void LoadSetting( void );
 	void SaveSetting( void );
@@ -128,7 +135,7 @@ protected:
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 
 	bool m_bIsDraging;
-
+	int m_nClickedTitleIdx;
 //	HCURSOR m_hCursor;
 
 	virtual BOOL OnInitDialog();
@@ -157,6 +164,8 @@ public:
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnRclickmenuAbout();
 	afx_msg void OnDropFiles(HDROP hDropInfo);
+	afx_msg void OnRclickTitleMenuUp();
+	afx_msg void OnRclickTitleMenuDown();
 };
 
 int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest );

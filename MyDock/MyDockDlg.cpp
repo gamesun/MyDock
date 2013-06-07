@@ -12,6 +12,7 @@
 #include "LnkParser.h"
 #include "UrlParser.h"
 #include <atlbase.h>
+#include <algorithm>
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -68,6 +69,8 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_WM_ACTIVATE()
 	ON_COMMAND(ID_RCLICKMENU_ABOUT, &CMyDockDlg::OnRclickmenuAbout)
 	ON_WM_DROPFILES()
+	ON_COMMAND(ID_RCLICKTITLEMENU_UP, &CMyDockDlg::OnRclickTitleMenuUp)
+	ON_COMMAND(ID_RCLICKTITLEMENU_DOWN, &CMyDockDlg::OnRclickTitleMenuDown)
 END_MESSAGE_MAP()
 
 
@@ -127,6 +130,8 @@ BOOL CMyDockDlg::OnInitDialog()
 	m_sizeIcon.SetSize( 16, 16 );
 	m_dwHoldTimeBeforeShow = 0;
 	m_dwHoldTimeBeforeHide = 0;
+
+	m_nClickedTitleIdx = -1;
 
 	OleInitialize( NULL );
 
@@ -243,6 +248,7 @@ void CMyDockDlg::LoadSetting( void ){
 		stAppInfo.bIsUrl = false;
 
 		strSection.Format( "App%d", i + 1  );
+		stAppInfo.nSortIdx = i + 1;
 
 		GetPrivateProfileString( strSection, strKey[0], "", stAppInfo.strTitle.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strTitle.ReleaseBuffer();
@@ -715,7 +721,23 @@ BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 
 	//WM_RBUTTONDOWN
 	if ( pMsg->message == WM_RBUTTONUP ){
-		
+		CPoint pt;
+		::GetCursorPos( &pt );
+		ScreenToClient( &pt );
+		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
+			if ( i->rectTitle.PtInRect( pt ) ){
+				CMenu dMenu;
+				if ( !dMenu.LoadMenu( IDR_MENU1 ) )
+					AfxThrowResourceException();
+				CMenu* pPopMenu = dMenu.GetSubMenu( 1 );
+				if ( pPopMenu != NULL ){
+					m_nClickedTitleIdx = distance( m_vstAppInfo.begin(), i );
+					pPopMenu->TrackPopupMenu( TPM_LEFTALIGN | TPM_RIGHTBUTTON, pMsg->pt.x, pMsg->pt.y, this );
+				}
+				
+				return TRUE;
+			}
+		}
 	}
 
 	if ( ! m_bIsShowTitle ){
@@ -767,15 +789,16 @@ void CMyDockDlg::OnRButtonUp(UINT nFlags, CPoint point)
 {
 	CPoint pt;
 	CMenu dMenu;
-	if(!dMenu.LoadMenu(IDR_MENU1))
+	if ( !dMenu.LoadMenu( IDR_MENU1 ) )
 		AfxThrowResourceException();
-	CMenu* pPopMenu=dMenu.GetSubMenu(0);
-	ASSERT(pPopMenu!=NULL);
-	pPopMenu->CheckMenuItem( ID_RCLICKMENU_SHOWTITLES, ( m_bIsShowTitle ? MF_CHECKED : MF_UNCHECKED ) );
-	::GetCursorPos(&pt);
-	pPopMenu->TrackPopupMenu( TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this );
+	CMenu* pPopMenu = dMenu.GetSubMenu( 0 );
+	if ( pPopMenu != NULL ){
+		pPopMenu->CheckMenuItem( ID_RCLICKMENU_SHOWTITLES, ( m_bIsShowTitle ? MF_CHECKED : MF_UNCHECKED ) );
+		::GetCursorPos( &pt );
+		pPopMenu->TrackPopupMenu( TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this );
+	}
 
-	CDialogEx::OnRButtonUp(nFlags, point);
+	CDialogEx::OnRButtonUp( nFlags, point );
 }
 
 
@@ -1002,6 +1025,7 @@ HRESULT CMyDockDlg::GetLnkInfo( const CString& strDest )
 	stAppInfo.pStnTitle = NULL;
 	stAppInfo.pStnFont = NULL;
 	stAppInfo.bIsUrl = false;
+	stAppInfo.nSortIdx = m_vstAppInfo.size();
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
@@ -1078,6 +1102,7 @@ HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
 	stAppInfo.pStnTitle = NULL;
 	stAppInfo.pStnFont = NULL;
 	stAppInfo.bIsUrl = true;
+	stAppInfo.nSortIdx = m_vstAppInfo.size();
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
@@ -1128,3 +1153,57 @@ int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCo
 	return iDestCnt;
 }
 
+
+void CMyDockDlg::OnRclickTitleMenuUp()
+{
+	if ( ( 0 < m_nClickedTitleIdx ) &&						// when m_nClickedTitleIdx is 0, do nothing
+		( m_nClickedTitleIdx < (int)m_vstAppInfo.size() ) ){
+		SwapAppStnPosi( m_nClickedTitleIdx - 1, m_nClickedTitleIdx );
+		m_nClickedTitleIdx = -1;
+	}
+}
+
+
+void CMyDockDlg::OnRclickTitleMenuDown()
+{
+	if ( ( 0 <= m_nClickedTitleIdx ) &&
+		( m_nClickedTitleIdx < (int)m_vstAppInfo.size() - 1 ) ){	// when m_nClickedTitleIdx is m_vstAppInfo.size()-1, do nothing
+		SwapAppStnPosi( m_nClickedTitleIdx, m_nClickedTitleIdx + 1 );
+		m_nClickedTitleIdx = -1;
+	}
+}
+
+void CMyDockDlg::SortAppStn( void )
+{
+	std::sort( m_vstAppInfo.begin(), m_vstAppInfo.end() );
+}
+
+void CMyDockDlg::SwapAppStnPosi( UINT nIdxA, UINT nIdxB )
+{
+	if ( ( nIdxA == nIdxB ) || 
+		( nIdxA >= m_vstAppInfo.size() ) ||
+		( nIdxB >= m_vstAppInfo.size() ) ){
+		return;
+	}
+
+	int dyA = ( nIdxA < nIdxB ) ? APP_STN_H_DISTANCE : -(APP_STN_H_DISTANCE);
+	int dyB = -dyA;
+
+	m_vstAppInfo[nIdxA].rectTitle.OffsetRect( 0, dyA );
+	m_vstAppInfo[nIdxB].rectTitle.OffsetRect( 0, dyB );
+	m_vstAppInfo[nIdxA].pStnTitle->MoveWindow( m_vstAppInfo[nIdxA].rectTitle );
+	m_vstAppInfo[nIdxB].pStnTitle->MoveWindow( m_vstAppInfo[nIdxB].rectTitle );
+
+	CRect rect;
+	m_vstAppInfo[nIdxA].pStnIcon->GetWindowRect( rect );
+	ScreenToClient( &rect );
+	rect.OffsetRect( 0, dyA );
+	m_vstAppInfo[nIdxA].pStnIcon->MoveWindow( rect );
+
+	m_vstAppInfo[nIdxB].pStnIcon->GetWindowRect( rect );
+	ScreenToClient( &rect );
+	rect.OffsetRect( 0, dyB );
+	m_vstAppInfo[nIdxB].pStnIcon->MoveWindow( rect );
+
+	std::swap( m_vstAppInfo[nIdxA], m_vstAppInfo[nIdxB] );
+}
