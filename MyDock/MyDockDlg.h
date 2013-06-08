@@ -84,7 +84,7 @@ public:
 	HRESULT GetUrlInfo( const CString& strDest );
 	void CreateAppItem( int nIdx );
 	void SortAppStn( void );
-	void SwapAppStnPosi( UINT nIdxA, UINT nIdxB );
+	void SwapAppStn( UINT nIdxA, UINT nIdxB );
 	void SaveAppSetting( UINT nIdx );
 	void LoadSetting( void );
 	void SaveSetting( void );

@@ -257,6 +257,9 @@ void CMyDockDlg::LoadSetting( void ){
 
 		GetPrivateProfileString( strSection, strKey[1], "", stAppInfo.strLink.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
 		stAppInfo.strLink.ReleaseBuffer();
+		if ( stAppInfo.strLink.IsEmpty() ){
+			continue;
+		}
 		Utf8ToAnsi( stAppInfo.strLink );
 
 		GetPrivateProfileString( strSection, strKey[2], "", stAppInfo.strPara.GetBuffer(MAX_PATH), MAX_PATH, m_strSettingFile );
@@ -281,10 +284,8 @@ void CMyDockDlg::LoadSetting( void ){
 		strBuff.ReleaseBuffer();
 		stAppInfo.bIsUrl = ( "yes" == strBuff ) ? true : false;
 
-		if ( !stAppInfo.strLink.IsEmpty() ){
-			m_vstAppInfo.push_back( stAppInfo );
-			TRACE( "%s:%s\n", strKey[0], stAppInfo.strLink );
-		}
+		m_vstAppInfo.push_back( stAppInfo );
+		TRACE( "%s:%s\n", strKey[0], stAppInfo.strLink );
 	}
 
 	for ( UINT i = 0; i < m_vstAppInfo.size(); i++ ){
@@ -344,7 +345,7 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 			stApp.pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, CRect( l, t, r, b ), this, IDC_STN_HEAD + nIdx );
 			//	stApp.pStnIcon->SetIcon( stApp.hIcon, 16, 16 );
 			stApp.pStnIcon->SetIcon( stApp.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );	// TODO: get the corresponding size icon
-			
+
 			stApp.pTipCtl = new CToolTipCtrl;
 			stApp.pTipCtl->Create( this );
 			stApp.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdx ), ( stApp.strTip.IsEmpty() ) ? stApp.strTitle : stApp.strTip );
@@ -1158,7 +1159,7 @@ void CMyDockDlg::OnRclickTitleMenuUp()
 {
 	if ( ( 0 < m_nClickedTitleIdx ) &&						// when m_nClickedTitleIdx is 0, do nothing
 		( m_nClickedTitleIdx < (int)m_vstAppInfo.size() ) ){
-		SwapAppStnPosi( m_nClickedTitleIdx - 1, m_nClickedTitleIdx );
+		SwapAppStn( m_nClickedTitleIdx - 1, m_nClickedTitleIdx );
 		m_nClickedTitleIdx = -1;
 	}
 }
@@ -1168,7 +1169,7 @@ void CMyDockDlg::OnRclickTitleMenuDown()
 {
 	if ( ( 0 <= m_nClickedTitleIdx ) &&
 		( m_nClickedTitleIdx < (int)m_vstAppInfo.size() - 1 ) ){	// when m_nClickedTitleIdx is m_vstAppInfo.size()-1, do nothing
-		SwapAppStnPosi( m_nClickedTitleIdx, m_nClickedTitleIdx + 1 );
+		SwapAppStn( m_nClickedTitleIdx, m_nClickedTitleIdx + 1 );
 		m_nClickedTitleIdx = -1;
 	}
 }
@@ -1178,7 +1179,7 @@ void CMyDockDlg::SortAppStn( void )
 	std::sort( m_vstAppInfo.begin(), m_vstAppInfo.end() );
 }
 
-void CMyDockDlg::SwapAppStnPosi( UINT nIdxA, UINT nIdxB )
+void CMyDockDlg::SwapAppStn( UINT nIdxA, UINT nIdxB )
 {
 	if ( ( nIdxA == nIdxB ) || 
 		( nIdxA >= m_vstAppInfo.size() ) ||
@@ -1186,24 +1187,52 @@ void CMyDockDlg::SwapAppStnPosi( UINT nIdxA, UINT nIdxB )
 		return;
 	}
 
+	ST_APP_INFO &stAppA = m_vstAppInfo.at( nIdxA );
+	ST_APP_INFO &stAppB = m_vstAppInfo.at( nIdxB );
+
 	int dyA = ( nIdxA < nIdxB ) ? APP_STN_H_DISTANCE : -(APP_STN_H_DISTANCE);
 	int dyB = -dyA;
 
-	m_vstAppInfo[nIdxA].rectTitle.OffsetRect( 0, dyA );
-	m_vstAppInfo[nIdxB].rectTitle.OffsetRect( 0, dyB );
-	m_vstAppInfo[nIdxA].pStnTitle->MoveWindow( m_vstAppInfo[nIdxA].rectTitle );
-	m_vstAppInfo[nIdxB].pStnTitle->MoveWindow( m_vstAppInfo[nIdxB].rectTitle );
+	stAppA.rectTitle.OffsetRect( 0, dyA );
+	stAppB.rectTitle.OffsetRect( 0, dyB );
 
-	CRect rect;
-	m_vstAppInfo[nIdxA].pStnIcon->GetWindowRect( rect );
-	ScreenToClient( &rect );
-	rect.OffsetRect( 0, dyA );
-	m_vstAppInfo[nIdxA].pStnIcon->MoveWindow( rect );
+	delete stAppA.pStnTitle;
+	delete stAppB.pStnTitle;
 
-	m_vstAppInfo[nIdxB].pStnIcon->GetWindowRect( rect );
-	ScreenToClient( &rect );
-	rect.OffsetRect( 0, dyB );
-	m_vstAppInfo[nIdxB].pStnIcon->MoveWindow( rect );
+	stAppA.pStnTitle = new CStatic;
+	stAppB.pStnTitle = new CStatic;
 
-	std::swap( m_vstAppInfo[nIdxA], m_vstAppInfo[nIdxB] );
+	stAppA.pStnTitle->Create( "", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, stAppA.rectTitle, this, IDC_STN_TITLE_HEAD + nIdxB );
+	stAppB.pStnTitle->Create( "", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, stAppB.rectTitle, this, IDC_STN_TITLE_HEAD + nIdxA );
+
+	stAppA.pStnTitle->SetFont( stAppA.pStnFont );
+	stAppB.pStnTitle->SetFont( stAppB.pStnFont );
+
+
+	CRect rectA, rectB;
+	stAppA.pStnIcon->GetWindowRect( rectA );
+	stAppB.pStnIcon->GetWindowRect( rectB );
+	ScreenToClient( &rectA );
+	ScreenToClient( &rectB );
+
+	stAppA.pTipCtl->DelTool( GetDlgItem( IDC_STN_HEAD + nIdxA ) );
+	stAppB.pTipCtl->DelTool( GetDlgItem( IDC_STN_HEAD + nIdxB ) );
+	delete stAppA.pStnIcon;
+	delete stAppB.pStnIcon;
+
+	stAppA.pStnIcon = new CTransparentImage;
+	stAppB.pStnIcon = new CTransparentImage;
+
+	// swap position & ID
+	stAppA.pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, rectB, this, IDC_STN_HEAD + nIdxB );
+	stAppB.pStnIcon->Create( "", WS_CHILD | WS_VISIBLE | SS_ICON | SS_NOTIFY, rectA, this, IDC_STN_HEAD + nIdxA );
+	stAppA.pStnIcon->SetIcon( stAppA.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
+	stAppB.pStnIcon->SetIcon( stAppB.hIcon, m_sizeIcon.cx, m_sizeIcon.cy );
+	
+	stAppA.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdxA ), ( stAppA.strTip.IsEmpty() ) ? stAppA.strTitle : stAppA.strTip );
+	stAppB.pTipCtl->AddTool( GetDlgItem( IDC_STN_HEAD + nIdxB ), ( stAppB.strTip.IsEmpty() ) ? stAppB.strTitle : stAppB.strTip );
+	
+	std::swap( stAppA, stAppB );
+	
+	Invalidate( TRUE );
 }
