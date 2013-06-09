@@ -49,6 +49,7 @@ typedef enum _hide_posi{
 typedef struct _app_info {
 //	CStatic* pStnIcon;
 	CTransparentImage* pStnIcon;
+//	CRect rectIcon;
 	CStatic* pStnTitle;
 	CRect rectTitle;
 	CFont* pStnFont;
@@ -85,6 +86,7 @@ public:
 	void CreateAppItem( int nIdx );
 	void SortAppStn( void );
 	void SwapAppStn( UINT nIdxA, UINT nIdxB );
+	void ReWriteAppSetting( void );
 	void SaveAppSetting( UINT nIdx );
 	void LoadSetting( void );
 	void SaveSetting( void );
@@ -120,12 +122,12 @@ protected:
 	enHidePosi m_enHidePosi;
 	DWORD m_dwLastActiveTime;
 
-	CRect m_rect;
+	CRect m_rectMain;
 	bool m_bIsHiding;
 	bool m_bIsShowTitle;
 	CSize m_sizeIcon;
-	CSize m_sizeApp;
-	LONG m_nAppWidthTitle;
+	CSize m_sizeMain;
+	LONG m_nTitleWidthMax;
 	DWORD m_dwHoldTimeBeforeShow;
 	DWORD m_dwHoldTimeBeforeHide;
 	CString m_strFontName;
@@ -166,8 +168,11 @@ public:
 	afx_msg void OnDropFiles(HDROP hDropInfo);
 	afx_msg void OnRclickTitleMenuUp();
 	afx_msg void OnRclickTitleMenuDown();
+//	afx_msg HRESULT OnReWriteAppSetting(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnRclickTitleMenuRemove();
 };
 
+bool AppStnWidthCmp( const ST_APP_INFO &a, const ST_APP_INFO &b );
 int CodePageConvert( UINT SrcCodePage, LPCTSTR pszSrc, int iBuffLen, UINT DestCodePage, char* &pszDest );
 int Utf8ToAnsi( CString& strInOut );
 int AnsiToUtf8( CString& strInOut );

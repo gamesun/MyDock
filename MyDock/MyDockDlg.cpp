@@ -22,6 +22,9 @@
 #define new DEBUG_NEW
 #endif
 
+//static UINT WM_MY_MSG_REWRITE_APP_SETTING = RegisterWindowMessage(_T("ReWriteAppSetting"));
+
+
 //using namespace std;
 
 const int c_nIconSize[] = {
@@ -71,6 +74,8 @@ BEGIN_MESSAGE_MAP(CMyDockDlg, CDialogEx)
 	ON_WM_DROPFILES()
 	ON_COMMAND(ID_RCLICKTITLEMENU_UP, &CMyDockDlg::OnRclickTitleMenuUp)
 	ON_COMMAND(ID_RCLICKTITLEMENU_DOWN, &CMyDockDlg::OnRclickTitleMenuDown)
+//	ON_REGISTERED_MESSAGE(WM_MY_MSG_REWRITE_APP_SETTING, &CMyDockDlg::OnReWriteAppSetting)
+ON_COMMAND(ID_RCLICKTITLEMENU_REMOVE, &CMyDockDlg::OnRclickTitleMenuRemove)
 END_MESSAGE_MAP()
 
 
@@ -125,8 +130,8 @@ BOOL CMyDockDlg::OnInitDialog()
 	SetTimer( TIMER_EVENT_ID_100MS, 100, NULL );
 
 	m_bIsDraging = false;
-	m_nAppWidthTitle = 0;
-	m_sizeApp.SetSize( APP_WIDTH, APP_HEIGHT );
+	m_nTitleWidthMax = 0;
+	m_sizeMain.SetSize( APP_WIDTH, APP_HEIGHT );
 	m_sizeIcon.SetSize( 16, 16 );
 	m_dwHoldTimeBeforeShow = 0;
 	m_dwHoldTimeBeforeHide = 0;
@@ -294,8 +299,8 @@ void CMyDockDlg::LoadSetting( void ){
 	
 	::SetClassLongPtr( m_vstAppInfo.at(0).pStnIcon->m_hWnd, GCL_HCURSOR, (LONG)LoadCursor( NULL, IDC_HAND ) );
 
-	m_nAppWidthTitle += APP_STN_W_SPACING + m_sizeIcon.cx + APP_TITLE_W_SPACING + APP_STN_W_SPACING;
-	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+	m_nTitleWidthMax = std::max_element( m_vstAppInfo.begin(), m_vstAppInfo.end(), AppStnWidthCmp )->rectTitle.Width();
+	m_sizeMain.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	UpdateUI();
 
@@ -321,6 +326,7 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 			if ( ( dwAttrib != -1 ) && 
 				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){ 
 				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &stApp.hIcon, 1 );		// opened folder icon
+//				nRet = ExtractIconEx( "Shell32.dll", 4, &stApp.hIcon, NULL, 1 );		// opened folder icon
 			} else if ( 0 < ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 ) ){
 				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &stApp.hIcon, 1 );
 			} else {
@@ -378,7 +384,6 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 		if( ::GetTextExtentPoint32( (HDC)dc, stApp.strTitle, stApp.strTitle.GetLength(), &size ) ){
 			stApp.rectTitle.right = stApp.rectTitle.left + size.cx;
 		//	stApp.rectTitle.bottom = stApp.rectTitle.top + size.cy;
-			m_nAppWidthTitle = ( m_nAppWidthTitle < stApp.rectTitle.Width() ) ? stApp.rectTitle.Width() : m_nAppWidthTitle;
 		} else {
 			TRACE( "GetTextExtentPoint32 fail to get the size of text!\n" );
 		}
@@ -405,10 +410,10 @@ void CMyDockDlg::SaveSetting( void )
 {
 	char szBuff[16];
 
-	_itoa_s( m_rect.left, szBuff, 10 );
+	_itoa_s( m_rectMain.left, szBuff, 10 );
 	WritePrivateProfileString( "options", "screen x", szBuff, m_strSettingFile );
 
-	_itoa_s( m_rect.top, szBuff, 10 );
+	_itoa_s( m_rectMain.top, szBuff, 10 );
 	WritePrivateProfileString( "options", "screen y", szBuff, m_strSettingFile );
 
 	WritePrivateProfileString( "options", "show titles", ( m_bIsShowTitle ? "yes" : "no" ), m_strSettingFile );
@@ -598,7 +603,7 @@ void CMyDockDlg::DockedShow( void ){
 		case TOP:
 			m_bIsHiding = false;
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, m_rect.left, m_rect.top, m_rect.Width(), m_rect.Height() * seq / SEQ_NUM, SWP_SHOWWINDOW );
+				this->SetWindowPos( NULL, m_rectMain.left, m_rectMain.top, m_rectMain.Width(), m_rectMain.Height() * seq / SEQ_NUM, SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
@@ -612,7 +617,7 @@ void CMyDockDlg::DockedShow( void ){
 		case LEFT:
 			m_bIsHiding = false;
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, 0, 0, m_rect.Width() * seq / SEQ_NUM, m_rect.Height(), SWP_NOMOVE );
+				this->SetWindowPos( NULL, 0, 0, m_rectMain.Width() * seq / SEQ_NUM, m_rectMain.Height(), SWP_NOMOVE );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
@@ -627,7 +632,7 @@ void CMyDockDlg::DockedShow( void ){
 		case RIGHT:
 			m_bIsHiding = false;
 			while ( ++seq <= SEQ_NUM ){
-				this->SetWindowPos( NULL, m_rect.left + m_rect.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rect.top, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW );
+				this->SetWindowPos( NULL, m_rectMain.left + m_rectMain.Width() * ( SEQ_NUM - seq ) / SEQ_NUM, m_rectMain.top, m_rectMain.Width(), m_rectMain.Height(), SWP_SHOWWINDOW );
 				if ( m_osvi.dwMajorVersion >= 6 ){
 					CRect rect;
 					GetClientRect( &rect );
@@ -650,40 +655,40 @@ void CMyDockDlg::DockedHidden( bool bIsForceHide ){
 	
 	if ( ( m_enHidePosi == NO && !IsMouseInWindow() ) || 
 		( bIsForceHide ) ){
-		m_rect = rect;
-		if ( m_rect.top <=0 ){
+		m_rectMain = rect;
+		if ( m_rectMain.top <=0 ){
 			m_enHidePosi = TOP;
 			ModifyStyle( WS_THICKFRAME, NULL );
-			this->SetWindowPos( NULL, m_rect.left, 0, m_rect.Width(), 2, SWP_NOCOPYBITS );
+			this->SetWindowPos( NULL, m_rectMain.left, 0, m_rectMain.Width(), 2, SWP_NOCOPYBITS );
 
-		//	m_rect.bottom -= m_rect.top;
-			m_rect.bottom = m_sizeApp.cy;
-			m_rect.top    =  0;
+		//	m_rectMain.bottom -= m_rectMain.top;
+			m_rectMain.bottom = m_sizeMain.cy;
+			m_rectMain.top    =  0;
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
 				DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsNone );
 			}
-		} else if ( m_rect.left <=0 ){
+		} else if ( m_rectMain.left <=0 ){
 			m_enHidePosi = LEFT;
 			ModifyStyle( WS_THICKFRAME, NULL );
-			this->SetWindowPos( NULL, 0, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
+			this->SetWindowPos( NULL, 0, m_rectMain.top, 2, m_rectMain.Height(), SWP_NOCOPYBITS );
 
-		//	m_rect.right -= m_rect.left;
-			m_rect.right = m_sizeApp.cx;
-			m_rect.left  = 0;
+		//	m_rectMain.right -= m_rectMain.left;
+			m_rectMain.right = m_sizeMain.cx;
+			m_rectMain.left  = 0;
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
 				DwmExtendFrameIntoClientArea( m_hWnd, &m_marginsNone );
 			}
-		} else if ( m_rect.right >= m_screenX ){ 
+		} else if ( m_rectMain.right >= m_screenX ){ 
 			m_enHidePosi = RIGHT;
 			ModifyStyle( WS_THICKFRAME, NULL );
-			this->SetWindowPos( NULL, m_screenX-2, m_rect.top, 2, m_rect.Height(), SWP_NOCOPYBITS );
+			this->SetWindowPos( NULL, m_screenX-2, m_rectMain.top, 2, m_rectMain.Height(), SWP_NOCOPYBITS );
 
-			m_rect.left  = m_screenX - m_rect.Width();
-			m_rect.right = m_screenX;//m_rect.left; //   m_rect.right - m_screenX
+			m_rectMain.left  = m_screenX - m_rectMain.Width();
+			m_rectMain.right = m_screenX;//m_rectMain.left; //   m_rectMain.right - m_screenX
 			m_bIsHiding = true;
 
 			if ( m_osvi.dwMajorVersion >= 6 ){
@@ -710,23 +715,27 @@ void CMyDockDlg::OnCancel()
 //static bool dbgFlg = false;
 BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 {
-	if ( pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE ){
-		//m_obj.SetFocus();
-		return TRUE;
-	}
-
 	//if ( dbgFlg && pMsg->message == WM_PAINT ){
 	//	return TRUE;
 	//}
 //	( pMsg->message == WM_TIMER ) ? 0 : TRACE( ",%04X", pMsg->message );
 
-	//WM_RBUTTONDOWN
-	if ( pMsg->message == WM_RBUTTONUP ){
+	switch ( pMsg->message ){
+	case WM_KEYDOWN:
+		if ( pMsg->wParam == VK_ESCAPE ){
+			return TRUE;
+		}
+		break;
+	case WM_RBUTTONDOWN:
+		RedrawWindow( NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW );
+		break;
+	case WM_RBUTTONUP:
 		CPoint pt;
 		::GetCursorPos( &pt );
 		ScreenToClient( &pt );
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			if ( i->rectTitle.PtInRect( pt ) ){
+				RedrawWindow( NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW );
 				CMenu dMenu;
 				if ( !dMenu.LoadMenu( IDR_MENU1 ) )
 					AfxThrowResourceException();
@@ -739,6 +748,7 @@ BOOL CMyDockDlg::PreTranslateMessage(MSG* pMsg)
 				return TRUE;
 			}
 		}
+		break;
 	}
 
 	if ( ! m_bIsShowTitle ){
@@ -838,7 +848,7 @@ void CMyDockDlg::UpdateUI( void )
 			}
 		}
 
-		m_sizeApp.cx = m_nAppWidthTitle + 10;
+		m_sizeMain.cx = m_nTitleWidthMax + APP_STN_W_SPACING + m_sizeIcon.cx + APP_TITLE_W_SPACING + APP_STN_W_SPACING + 10;
 	} else {
 		for ( std::vector<ST_APP_INFO>::iterator i = m_vstAppInfo.begin(); i != m_vstAppInfo.end(); i++ ){
 			if ( i->pStnTitle ){
@@ -846,18 +856,19 @@ void CMyDockDlg::UpdateUI( void )
 			}
 		}
 
-		m_sizeApp.cx = APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_W_SPACING;
+		m_sizeMain.cx = APP_STN_W_SPACING + m_sizeIcon.cx + APP_STN_W_SPACING;
 	}
 
-	m_rect.right  = m_rect.left + m_sizeApp.cx;
-	m_rect.bottom = m_rect.top  + m_sizeApp.cy;
+	m_rectMain.right  = m_rectMain.left + m_sizeMain.cx;
+	m_rectMain.bottom = m_rectMain.top  + m_sizeMain.cy;
 
 	ModifyStyle( NULL, WS_THICKFRAME );
-	SetWindowPos( &wndTopMost, 0, 0, m_rect.Width(), m_rect.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
+	SetWindowPos( &wndTopMost, 0, 0, m_rectMain.Width(), m_rectMain.Height(), SWP_SHOWWINDOW | SWP_NOMOVE );
 	m_bIsHiding  = false;
 	m_enHidePosi = NO;
 
-	Invalidate( FALSE );	// do not erase the background
+//	Invalidate( FALSE );	// do not erase the background
+	RedrawWindow( NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW );
 }
 
 
@@ -1030,7 +1041,7 @@ HRESULT CMyDockDlg::GetLnkInfo( const CString& strDest )
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
-	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+	m_sizeMain.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	CreateAppItem( m_vstAppInfo.size() - 1 );
 
@@ -1107,7 +1118,7 @@ HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
 
 	m_vstAppInfo.push_back( stAppInfo );
 	
-	m_sizeApp.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+	m_sizeMain.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
 
 	CreateAppItem( m_vstAppInfo.size() - 1 );
 
@@ -1174,6 +1185,46 @@ void CMyDockDlg::OnRclickTitleMenuDown()
 	}
 }
 
+void CMyDockDlg::OnRclickTitleMenuRemove()
+{
+	if ( ( 0 <= m_nClickedTitleIdx ) &&
+		( m_nClickedTitleIdx < (int)m_vstAppInfo.size() ) ){
+		ST_APP_INFO &stApp = m_vstAppInfo[m_nClickedTitleIdx];
+		delete stApp.pTipCtl;
+		delete stApp.pStnIcon;
+		delete stApp.pStnTitle;
+		delete stApp.pStnFont;
+		m_vstAppInfo.erase( m_vstAppInfo.begin() + m_nClickedTitleIdx );
+		
+		for ( std::vector<ST_APP_INFO>::iterator iter = m_vstAppInfo.begin() + m_nClickedTitleIdx; iter != m_vstAppInfo.end(); iter++ ){
+			CRect rect;
+			iter->pStnIcon->GetWindowRect( &rect );
+			ScreenToClient( &rect );
+			rect.OffsetRect( 0, -APP_STN_H_DISTANCE );
+			iter->pStnIcon->MoveWindow( &rect );
+
+			iter->rectTitle.OffsetRect( 0, -APP_STN_H_DISTANCE );
+			iter->pStnTitle->MoveWindow( iter->rectTitle );
+		}
+
+		m_nTitleWidthMax = std::max_element( m_vstAppInfo.begin(), m_vstAppInfo.end(), AppStnWidthCmp )->rectTitle.Width();
+		m_sizeMain.cy = APP_STN_TOP + APP_STN_H_DISTANCE * m_vstAppInfo.size() + APP_STN_BOTTOM;
+		UpdateUI();
+
+		ReWriteAppSetting();
+		//CString strSection;
+		//strSection.Format( "App%d", m_nClickedTitleIdx + 1 );
+		//WritePrivateProfileString( strSection, NULL, NULL, m_strSettingFile );	// delete section
+
+		m_nClickedTitleIdx = -1;
+	}
+}
+
+bool AppStnWidthCmp( const ST_APP_INFO &a, const ST_APP_INFO &b )
+{
+	return a.rectTitle.Width() < b.rectTitle.Width();
+}
+
 void CMyDockDlg::SortAppStn( void )
 {
 	std::sort( m_vstAppInfo.begin(), m_vstAppInfo.end() );
@@ -1234,5 +1285,33 @@ void CMyDockDlg::SwapAppStn( UINT nIdxA, UINT nIdxB )
 	
 	std::swap( stAppA, stAppB );
 	
-	Invalidate( TRUE );
+	RedrawWindow( NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW );
+
+	//// re-write the App? in the setting.ini
+	//CString strSectionA, strSectionB;
+	//strSectionA.Format( "App%d", nIdxA + 1 );
+	//strSectionB.Format( "App%d", nIdxB + 1 );
+	//WritePrivateProfileString( strSectionA, NULL, NULL, m_strSettingFile );	// delete the section
+	//WritePrivateProfileString( strSectionB, NULL, NULL, m_strSettingFile );	// delete the section
+
+	//SaveAppSetting( nIdxA );
+	//SaveAppSetting( nIdxB );
+
+//	::SendMessage( m_hWnd, WM_MY_MSG_REWRITE_APP_SETTING, NULL, NULL );
+	ReWriteAppSetting();
+}
+
+void CMyDockDlg::ReWriteAppSetting( void )
+{
+	for ( UINT i = 0; i < MAX_APP_NUM/*m_vstAppInfo.size()*/; i++ ){
+		CString strSection;
+		strSection.Format( "App%d", i + 1 );
+		WritePrivateProfileString( strSection, NULL, NULL, m_strSettingFile );	// delete section
+	}
+
+	for ( UINT i = 0; i < m_vstAppInfo.size(); i++ ){
+		SaveAppSetting( i );
+	}
+
+//	return S_OK;
 }
