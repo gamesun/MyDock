@@ -319,31 +319,38 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 	if ( ! stApp.strLink.IsEmpty() ){
 		//GetEnvironmentVariable();
 		UINT nRet = 0;
+		HICON hIcon16;	// 16 pixels 
+		HICON hIcon32;	// 32 pixels
 		if ( stApp.bIsUrl ){
 			stApp.hIcon = m_hUrlIcon;
 		} else if ( stApp.strIcon.IsEmpty() ){
 			DWORD dwAttrib = GetFileAttributes( stApp.strLink );
 			if ( ( dwAttrib != -1 ) && 
 				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){ 
-				nRet = ExtractIconEx( "Shell32.dll", 4, NULL, &stApp.hIcon, 1 );		// opened folder icon
-//				nRet = ExtractIconEx( "Shell32.dll", 4, &stApp.hIcon, NULL, 1 );		// opened folder icon
+				nRet = ExtractIconEx( "Shell32.dll", 4, &hIcon32, &hIcon16, 1 );		// opened folder icon
 			} else if ( 0 < ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 ) ){
-				nRet = ExtractIconEx( stApp.strLink, 0, NULL, &stApp.hIcon, 1 );
+				nRet = ExtractIconEx( stApp.strLink, 0, &hIcon32, &hIcon16, 1 );
 			} else {
 				nRet = -1;
 			}
 		} else {
 			UINT IconNum = ExtractIconEx( stApp.strIcon, -1, NULL, NULL, 0 );
 			UINT nIcoId = ( stApp.nIcoId < IconNum ) ? stApp.nIcoId : 0;
-			nRet = ExtractIconEx( stApp.strIcon, nIcoId, NULL, &stApp.hIcon, 1 );
+			nRet = ExtractIconEx( stApp.strIcon, nIcoId, &hIcon32, &hIcon16, 1 );
 		}
 		if ( -1 == nRet ){
-			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &stApp.hIcon, 1 );		// unknown executable file's icon.
+			nRet = ExtractIconEx( "imageres.dll", 11, &hIcon32, &hIcon16, 1 );		// unknown executable file's icon.
 			if ( nRet == -1 ){
 				ASSERT(0);
 			}
 		}
 
+		if ( m_sizeIcon.cx <= 16 ){
+			stApp.hIcon = hIcon16;
+		} else {
+			stApp.hIcon = hIcon32;
+		}
+		
 		if ( NULL == stApp.hIcon ){
 			ASSERT(0);
 		} else {
