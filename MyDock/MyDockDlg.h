@@ -132,7 +132,8 @@ protected:
 	DWORD m_dwHoldTimeBeforeHide;
 	CString m_strFontName;
 	int m_nFontSize;
-	HICON m_hUrlIcon;
+	HICON m_hUrlIcon16;
+	HICON m_hUrlIcon32;
 
 	std::vector<ST_APP_INFO> m_vstAppInfo;
 

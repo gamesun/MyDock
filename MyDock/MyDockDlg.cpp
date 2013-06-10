@@ -13,6 +13,7 @@
 #include "UrlParser.h"
 #include <atlbase.h>
 #include <algorithm>
+#include "error.h"
 
 #include <dwmapi.h>
 #pragma comment( lib, "Dwmapi.lib")
@@ -208,11 +209,11 @@ void CMyDockDlg::LoadSetting( void ){
 		UINT nRet = -1;
 		if ( ! strDefaultBrowser.IsEmpty() ){
 			if ( 0 < ExtractIconEx( strDefaultBrowser, -1, NULL, NULL, 0 ) ){
-				nRet = ExtractIconEx( strDefaultBrowser, 0, NULL, &m_hUrlIcon, 1 );
+				nRet = ExtractIconEx( strDefaultBrowser, 0, &m_hUrlIcon32, &m_hUrlIcon16, 1 );
 			}
 		}
 		if ( -1 == nRet ){
-			nRet = ExtractIconEx( "imageres.dll", 11, NULL, &m_hUrlIcon, 1 );		// unknown executable file's icon.
+			nRet = ExtractIconEx( "imageres.dll", 11, &m_hUrlIcon32, &m_hUrlIcon16, 1 );		// unknown executable file's icon.
 			if ( nRet == -1 ){
 				ASSERT(0);
 			}
@@ -321,11 +322,12 @@ void CMyDockDlg::CreateAppItem( int nIdx )
 		UINT nRet = 0;
 		HICON hIcon16;	// 16 pixels 
 		HICON hIcon32;	// 32 pixels
-		if ( stApp.bIsUrl ){
-			stApp.hIcon = m_hUrlIcon;
-		} else if ( stApp.strIcon.IsEmpty() ){
+		if ( stApp.strIcon.IsEmpty() ){
 			DWORD dwAttrib = GetFileAttributes( stApp.strLink );
-			if ( ( dwAttrib != -1 ) && 
+			if ( stApp.bIsUrl ){
+				hIcon16 = m_hUrlIcon16;
+				hIcon32 = m_hUrlIcon32;
+			} else if ( ( dwAttrib != -1 ) && 
 				( dwAttrib & FILE_ATTRIBUTE_DIRECTORY ) ){ 
 				nRet = ExtractIconEx( "Shell32.dll", 4, &hIcon32, &hIcon16, 1 );		// opened folder icon
 			} else if ( 0 < ExtractIconEx( stApp.strLink, -1, NULL, NULL, 0 ) ){
@@ -777,9 +779,14 @@ void CMyDockDlg::OnBnClickedBnApp( UINT nCtlId )
 	HINSTANCE h = ShellExecute( NULL, "open", info.strLink, info.strPara, info.strDir, SW_SHOW );
 	//switch ( (long)h ){
 	//case ERROR_FILE_NOT_FOUND:
-	//	
+
 	//	break;
 	//}
+	DWORD dwErrNo = GetLastError();
+	if ( NO_ERROR != dwErrNo ){
+		ShowError( dwErrNo, "ShellExecute" );
+	}
+
 	DockedHidden( true );
 }
 
@@ -829,7 +836,7 @@ void CMyDockDlg::OnRButtonDown(UINT nFlags, CPoint point)
 
 void CMyDockDlg::OnRclickmenuSetting()
 {
-	ShellExecute( NULL, "open", m_strSettingFile, NULL, NULL, SW_SHOW );
+	ShellExecute( NULL, "open", m_strSettingFile, NULL, NULL, SW_SHOWNORMAL );
 }
 
 
@@ -1101,10 +1108,18 @@ HRESULT CMyDockDlg::GetUrlInfo( const CString& strDest )
 	ST_APP_INFO stAppInfo;
 	CHAR szBuff[MAX_PATH];
 	CUrlParser up;
+	CString strPath;
+	strPath = strDest;
 
 	up.LoadFile( strDest.AllocSysString() );
 
-	up.GetTargetUrl( szBuff, MAX_PATH );
+	if ( S_OK != up.GetTargetUrl( szBuff, MAX_PATH ) ){
+		DWORD dwErrNo = GetLastError();
+		if ( NO_ERROR != dwErrNo ){
+			ShowError( dwErrNo, "GetUrlInfo" );
+			return dwErrNo;
+		}
+	}
 	stAppInfo.strLink.Format( "%s", szBuff );
 
 	up.GetTargetIconLocation( szBuff, MAX_PATH, (int*)&stAppInfo.nIcoId );
