@@ -51,6 +51,9 @@
     <ClInclude Include="UrlParser.h">
       <Filter>head files</Filter>
     </ClInclude>
+    <ClInclude Include="error.h">
+      <Filter>head files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MyDock.cpp">
@@ -72,6 +75,9 @@
       <Filter>source files</Filter>
     </ClCompile>
     <ClCompile Include="UrlParser.cpp">
+      <Filter>source files</Filter>
+    </ClCompile>
+    <ClCompile Include="error.cpp">
       <Filter>source files</Filter>
     </ClCompile>
   </ItemGroup>

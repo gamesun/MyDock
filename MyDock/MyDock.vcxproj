@@ -100,6 +100,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AboutDlg.h" />
+    <ClInclude Include="error.h" />
     <ClInclude Include="LnkParser.h" />
     <ClInclude Include="MyDock.h" />
     <ClInclude Include="MyDockDlg.h" />
@@ -111,6 +112,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
+    <ClCompile Include="error.cpp" />
     <ClCompile Include="LnkParser.cpp" />
     <ClCompile Include="MyDock.cpp" />
     <ClCompile Include="MyDockDlg.cpp" />
